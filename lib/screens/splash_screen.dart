@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -73,6 +74,24 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     );
 
     _entranceController.forward();
+
+    // Smooth transition to HomeScreen after the animation finishes
+    Future.delayed(const Duration(milliseconds: 2800), () {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: animation,
+                child: child,
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 600),
+          ),
+        );
+      }
+    });
   }
 
   @override
@@ -768,44 +787,49 @@ class BottomLeftNotesSheet extends StatelessWidget {
           // Notepad handwritten notes
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 22.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Thoughts',
-                  style: GoogleFonts.caveat(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF4A453F),
-                  ).copyWith(
-                    fontFamilyFallback: ['Comic Sans MS', 'Ink Free', 'cursive'],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '• Capture ideas instantly\n• Secure & offline-first\n• Organized folders',
-                  style: GoogleFonts.caveat(
-                    fontSize: 16,
-                    height: 1.6,
-                    color: const Color(0xFF6B655E),
-                  ).copyWith(
-                    fontFamilyFallback: ['Comic Sans MS', 'Ink Free', 'cursive'],
-                  ),
-                ),
-                const Spacer(),
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: Text(
-                    'nuvio.',
-                    style: GoogleFonts.cedarvilleCursive(
-                      fontSize: 16,
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Thoughts',
+                    style: GoogleFonts.caveat(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                       color: const Color(0xFF4A453F),
                     ).copyWith(
-                      fontFamilyFallback: ['Segoe Script', 'cursive'],
+                      fontFamilyFallback: ['Comic Sans MS', 'Ink Free', 'cursive'],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Text(
+                    '• Capture ideas instantly\n• Secure & offline-first\n• Organized folders',
+                    style: GoogleFonts.caveat(
+                      fontSize: 16,
+                      height: 1.6,
+                      color: const Color(0xFF6B655E),
+                    ).copyWith(
+                      fontFamilyFallback: ['Comic Sans MS', 'Ink Free', 'cursive'],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Absolutely positioned signature to prevent RenderFlex overflows
+          Positioned(
+            right: 16,
+            bottom: 12,
+            child: Text(
+              'nuvio.',
+              style: GoogleFonts.cedarvilleCursive(
+                fontSize: 16,
+                color: const Color(0xFF4A453F),
+              ).copyWith(
+                fontFamilyFallback: ['Segoe Script', 'cursive'],
+              ),
             ),
           ),
 
