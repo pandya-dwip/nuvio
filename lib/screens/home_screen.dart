@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +11,6 @@ import '../models/folder_model.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/note_card.dart';
 import '../screens/note_detail_screen.dart';
-import '../screens/settings_screen.dart';
 import '../screens/pinned_notes_screen.dart';
 import '../screens/favorites_screen.dart';
 import '../themes/app_theme.dart';
@@ -38,16 +38,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // Folders
   String? _selectedFolderId;
 
-  // Calendar
-  late DateTime _calendarMonth;
-  DateTime? _selectedDay;
+  // Calendar selected day
+  DateTime _selectedDay = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _calendarMonth = DateTime(now.year, now.month);
-    _selectedDay = DateTime(now.year, now.month, now.day);
     _pageController = PageController(initialPage: _kDefaultTab);
   }
 
@@ -73,47 +69,111 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  // --- Dynamic Category Icons for Mockup Replicas ---
+  IconData _getNoteIcon(Note note) {
+    if (note.checklist.isNotEmpty) {
+      return Icons.check_box_outlined;
+    }
+    if (note.blocks.any((b) => b.type == BlockType.quote)) {
+      return Icons.format_quote_outlined;
+    }
+    final titleLower = note.title.toLowerCase();
+    if (titleLower.contains('groceries') || titleLower.contains('shop') || titleLower.contains('cart')) {
+      return Icons.shopping_cart_outlined;
+    }
+    if (titleLower.contains('idea') || titleLower.contains('inspiration') || titleLower.contains('light')) {
+      return Icons.lightbulb_outline;
+    }
+    if (titleLower.contains('read') || titleLower.contains('book') || titleLower.contains('list')) {
+      return Icons.menu_book_outlined;
+    }
+    if (titleLower.contains('design') || titleLower.contains('art') || titleLower.contains('palette')) {
+      return Icons.palette_outlined;
+    }
+    return Icons.description_outlined;
+  }
+
+  // --- Helper to get name of week day ---
+  String _getDayName(int weekday) {
+    switch (weekday) {
+      case 1: return 'MON';
+      case 2: return 'TUE';
+      case 3: return 'WED';
+      case 4: return 'THU';
+      case 5: return 'FRI';
+      case 6: return 'SAT';
+      case 7: return 'SUN';
+      default: return '';
+    }
+  }
+
+  // --- Time Formatter Helper ---
+  String _formatTimeEdited(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inMinutes < 1) {
+      return 'Edited just now';
+    } else if (difference.inHours < 1) {
+      return 'Edited ${difference.inMinutes}m ago';
+    } else if (difference.inDays < 1) {
+      return 'Edited ${difference.inHours}h ago';
+    } else if (difference.inDays == 1) {
+      return 'Edited Yesterday';
+    } else {
+      return 'Edited ${difference.inDays}d ago';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final allNotes = ref.watch(notesProvider);
     final folders = ref.watch(foldersProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Theme.of(context).primaryColor;
+    
+    // Custom brand theme color
+    final customColor = ref.watch(customThemeColorProvider);
+    final brandColor = (customColor.value == Colors.black.value && isDark)
+        ? Colors.white
+        : (customColor.value == Colors.white.value ? Colors.black : customColor);
 
-    // Sorted for Home tab sections
-    final sorted = List<Note>.from(allNotes)
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+
+    // Filter notes by search query
+    List<Note> searchedNotes = allNotes;
+    if (_search.isNotEmpty) {
+      final q = _search.toLowerCase();
+      searchedNotes = searchedNotes.where((note) {
+        return note.title.toLowerCase().contains(q) ||
+            note.content.toLowerCase().contains(q) ||
+            note.checklist.any((item) => item.text.toLowerCase().contains(q));
+      }).toList();
+    }
+
+    // Sort notes by updatedAt descending to show recent changes first
+    final sortedNotes = List<Note>.from(searchedNotes)
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    final pinned = sorted.where((n) => n.isPinned).toList();
-    final favorites = sorted.where((n) => n.isFavorite).toList();
-    final recent = sorted.toList(); // All notes sorted by recency
 
-    // Folders tab
-    final rootFolders =
-        folders.where((f) => f.parentId == _selectedFolderId).toList();
+    final pinned = sortedNotes.where((note) => note.isPinned).toList();
+    final favorites = sortedNotes.where((note) => note.isFavorite).toList();
+    final recent = sortedNotes.where((note) => !note.isPinned).toList();
+
+    // Folders tab data logic
+    final rootFolders = folders.where((f) => f.parentId == _selectedFolderId).toList();
     List<Folder> displayFolders = rootFolders;
     List<Note> folderNotes = _selectedFolderId == null
         ? []
         : allNotes.where((n) => n.folderId == _selectedFolderId).toList();
 
-    if (_search.isNotEmpty) {
+    if (_search.isNotEmpty && _currentTab == 3) {
       final q = _search.toLowerCase();
-      if (_currentTab == 1) {
-        // Notes tab search
-      } else if (_currentTab == 3) {
-        displayFolders = rootFolders
-            .where((f) => f.name.toLowerCase().contains(q))
-            .toList();
-        folderNotes = folderNotes
-            .where((n) =>
-                n.title.toLowerCase().contains(q) ||
-                n.content.toLowerCase().contains(q))
-            .toList();
-      }
+      displayFolders = rootFolders.where((f) => f.name.toLowerCase().contains(q)).toList();
+      folderNotes = folderNotes.where((n) => n.title.toLowerCase().contains(q) || n.content.toLowerCase().contains(q)).toList();
     }
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      // FAB on Home tab (2) and Folders tab (3)
+      backgroundColor: bgColor,
+      // FAB on Home tab (2) and Folders tab (3) and Notes tab (1)
       floatingActionButton: (_currentTab == 1 || _currentTab == 2 || _currentTab == 3)
           ? Padding(
               padding: const EdgeInsets.only(bottom: 80.0),
@@ -152,8 +212,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     );
                   }
                 },
-                backgroundColor: primaryColor,
-                foregroundColor: isDark ? Colors.black : Colors.white,
+                backgroundColor: brandColor,
+                foregroundColor: (brandColor == Colors.white || brandColor.value == 0xFFFFFFFF) ? Colors.black : Colors.white,
                 elevation: 6,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                 child: const Icon(Icons.add_rounded, size: 28),
@@ -179,27 +239,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   }
                 },
                 children: [
-                  _buildCalendarTab(allNotes, isDark, primaryColor),
-                  _buildNotesTab(allNotes, isDark, primaryColor),
-                  _buildHomeTab(isDark, primaryColor, pinned, favorites, recent, allNotes),
-                  _buildFoldersTab(isDark, primaryColor, folders, displayFolders, folderNotes, allNotes),
-                  SettingsScreen(onBack: () => _switchTab(2)),
+                  _buildCalendarTab(sortedNotes, brandColor, isDark),
+                  _buildNotesTab(sortedNotes, folders, brandColor, isDark),
+                  _buildHomeTab(sortedNotes, folders, brandColor, isDark, pinned, favorites, recent),
+                  _buildFoldersTab(isDark, brandColor, folders, displayFolders, folderNotes, allNotes),
+                  _buildSettingsTab(brandColor, isDark),
                 ],
               ),
             ),
 
             // ── Navigation Bar ─────────────────────────────────────────
-            _buildNavBar(context, isDark, primaryColor),
+            _buildBottomNavigationBar(context, brandColor),
           ],
         ),
       ),
     );
   }
 
-
-
   // ═══════════════════════════════════════════════════════════════════════════
-  //  SHARED: Standard Tab Header (no back icon)
+  //  SHARED: Standard Tab Header (Notes/Folders search bar layout)
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildTabHeader(
     String title,
@@ -287,283 +345,430 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  // --- Dynamic Mockup Header (Brand title + theme toggle) ---
+  Widget _buildHeader(BuildContext context, String title, String subtitle, Color brandColor) {
+    final isDark = ref.watch(themeProvider) == ThemeMode.dark;
+    
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: brandColor,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white60 : const Color(0xFF6B665E),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          // Theme Toggle Button
+          GestureDetector(
+            onTap: () {
+              ref.read(themeProvider.notifier).toggleTheme();
+            },
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white10 : const Color(0xFFE8E8ED),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isDark ? Icons.wb_sunny_outlined : Icons.nightlight_round_outlined,
+                size: 20,
+                color: isDark ? Colors.white70 : const Color(0xFF2C2A29),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Reusable Section Title ---
+  Widget _buildSectionTitle(String title, VoidCallback onViewAll, Color brandColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF1a1c1f),
+            ),
+          ),
+          TextButton(
+            onPressed: onViewAll,
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(50, 30),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'VIEW ALL',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: brandColor,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
-  //  TAB 0 – CALENDAR (Full Month View)
+  //  TAB 0 – CALENDAR (Week View selector)
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildCalendarTab(
-      List<Note> allNotes, bool isDark, Color primaryColor) {
-    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final subtleColor = isDark ? Colors.white38 : const Color(0xFF9CA3AF);
+    List<Note> sortedNotes,
+    Color brandColor,
+    bool isDark,
+  ) {
+    // Generate dates of current week (Monday to Sunday)
+    final now = DateTime.now();
+    final currentWeekday = now.weekday;
+    final monday = now.subtract(Duration(days: currentWeekday - 1));
+    final weekDates = List<DateTime>.generate(7, (i) => monday.add(Duration(days: i)));
 
-    final year = _calendarMonth.year;
-    final month = _calendarMonth.month;
-    final firstDay = DateTime(year, month, 1);
-    final totalDays = DateTime(year, month + 1, 0).day;
-    // Monday-first offset (1=Mon→0, 7=Sun→6)
-    final startOffset = (firstDay.weekday - 1) % 7;
+    // Filter notes edited on the selected date
+    final calendarNotes = sortedNotes.where((note) {
+      return note.updatedAt.year == _selectedDay.year &&
+          note.updatedAt.month == _selectedDay.month &&
+          note.updatedAt.day == _selectedDay.day;
+    }).toList();
 
-    final monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildHeader(context, 'Calendar', 'View notes chronologically', brandColor),
+        
+        // Horizontal Day Selector
+        Container(
+          height: 90,
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: 7,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemBuilder: (context, index) {
+              final date = weekDates[index];
+              final isSelected = date.year == _selectedDay.year &&
+                  date.month == _selectedDay.month &&
+                  date.day == _selectedDay.day;
 
-    // Notes on selected day
-    var dayNotes = _selectedDay == null
-        ? <Note>[]
-        : allNotes.where((n) {
-            final d = n.updatedAt;
-            return d.year == _selectedDay!.year &&
-                d.month == _selectedDay!.month &&
-                d.day == _selectedDay!.day;
-          }).toList();
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _getDayName(date.weekday),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF8F887F),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedDay = date;
+                        });
+                      },
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? brandColor
+                              : (isDark ? const Color(0xFF1E2124) : Colors.white),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected ? Colors.transparent : (isDark ? Colors.white12 : const Color(0xFFE2E2E7)),
+                            width: 1.0,
+                          ),
+                          boxShadow: [
+                            if (isSelected)
+                              BoxShadow(
+                                color: brandColor.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${date.day}',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected
+                                  ? ((brandColor == Colors.white || brandColor.value == 0xFFFFFFFF) ? Colors.black : Colors.white)
+                                  : (isDark ? Colors.white70 : const Color(0xFF1a1c1f)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
 
-    if (_search.isNotEmpty) {
-      final q = _search.toLowerCase();
-      dayNotes = dayNotes
-          .where((n) =>
-              n.title.toLowerCase().contains(q) ||
-              n.content.toLowerCase().contains(q))
-          .toList();
+        Expanded(
+          child: calendarNotes.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.event_note, size: 48, color: Color(0xFF8F887F)),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No notes updated on this day.',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: const Color(0xFF8F887F),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: calendarNotes.length,
+                  itemBuilder: (context, index) {
+                    final note = calendarNotes[index];
+                    final noteIcon = _getNoteIcon(note);
+                    final itemBgColor = isDark ? const Color(0xFF1E2124) : Colors.white;
+                    final borderCol = isDark ? Colors.white12 : const Color(0xFFE2E2E7);
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: itemBgColor,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: borderCol, width: 1.0),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => NoteDetailScreen(noteId: note.id),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(24),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: brandColor.withOpacity(0.08),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  noteIcon,
+                                  color: brandColor,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      note.title.isNotEmpty ? note.title : 'Untitled',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? Colors.white : const Color(0xFF1a1c1f),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      'Last edited ${_formatTimeEdited(note.updatedAt)}',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        color: const Color(0xFF8F887F),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right, color: Color(0xFF8F887F), size: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  TAB 1 – NOTES (All Notes Search & Chips)
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildNotesTab(
+    List<Note> sortedNotes,
+    List<Folder> folders,
+    Color brandColor,
+    bool isDark,
+  ) {
+    List<Note> filteredNotes = sortedNotes;
+    if (_selectedFolderId != null) {
+      filteredNotes = filteredNotes.where((note) => note.folderId == _selectedFolderId).toList();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header (with back button and search bar)
-        _buildTabHeader('Calendar', isDark, primaryColor,
-            searchHint: 'Search notes on this day...'),
-
-        // Month nav
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${monthNames[month - 1]} $year',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: primaryColor,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: () => setState(() => _calendarMonth =
-                    DateTime(year, month - 1)),
-                icon: Icon(Icons.chevron_left_rounded, color: subtleColor),
-                padding: EdgeInsets.zero,
-              ),
-              IconButton(
-                onPressed: () => setState(() => _calendarMonth =
-                    DateTime(year, month + 1)),
-                icon: Icon(Icons.chevron_right_rounded, color: subtleColor),
-                padding: EdgeInsets.zero,
-              ),
-            ],
-          ),
-        ),
-
-        Divider(
-            color: isDark ? Colors.white12 : const Color(0xFFF3F4F6),
-            height: 1),
-
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 100),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  // Day-of-week headers
-                  Row(
-                    children: dayLabels
-                        .map((d) => Expanded(
-                              child: Center(
-                                child: Text(
-                                  d,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: subtleColor,
-                                  ),
-                                ),
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Calendar grid
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 7,
-                      childAspectRatio: 1.35,
-                      mainAxisSpacing: 4,
-                      crossAxisSpacing: 0,
-                    ),
-                    itemCount: startOffset + totalDays,
-                    itemBuilder: (_, idx) {
-                      if (idx < startOffset) return const SizedBox.shrink();
-                      final day = idx - startOffset + 1;
-                      final date = DateTime(year, month, day);
-                      final isToday = date.year == DateTime.now().year &&
-                          date.month == DateTime.now().month &&
-                          date.day == DateTime.now().day;
-                      final isSelected = _selectedDay != null &&
-                          date.year == _selectedDay!.year &&
-                          date.month == _selectedDay!.month &&
-                          date.day == _selectedDay!.day;
-                      final hasNotes = allNotes.any((n) =>
-                          n.updatedAt.year == year &&
-                          n.updatedAt.month == month &&
-                          n.updatedAt.day == day);
-
-                      return GestureDetector(
-                        onTap: () => setState(() => _selectedDay = date),
-                        child: AnimatedContainer(
-                           duration: const Duration(milliseconds: 180),
-                           margin: const EdgeInsets.all(2),
-                           decoration: BoxDecoration(
-                             color: isSelected
-                                 ? primaryColor
-                                 : isToday
-                                     ? primaryColor.withOpacity(0.12)
-                                     : Colors.transparent,
-                             borderRadius: BorderRadius.circular(10),
-                           ),
-                           child: Column(
-                             mainAxisAlignment: MainAxisAlignment.center,
-                             children: [
-                               Text(
-                                 '$day',
-                                 style: GoogleFonts.plusJakartaSans(
-                                   fontSize: 13,
-                                   fontWeight: isSelected || isToday
-                                       ? FontWeight.w700
-                                       : FontWeight.w500,
-                                   color: isSelected
-                                       ? Colors.white
-                                       : isToday
-                                           ? primaryColor
-                                           : textColor,
-                                 ),
-                               ),
-                               if (hasNotes)
-                                 Container(
-                                   width: 4,
-                                   height: 4,
-                                   margin: const EdgeInsets.only(top: 2),
-                                   decoration: BoxDecoration(
-                                     color: isSelected
-                                         ? Colors.white.withOpacity(0.8)
-                                         : primaryColor,
-                                     shape: BoxShape.circle,
-                                   ),
-                                 ),
-                             ],
-                           ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-                  Divider(
-                      color: isDark ? Colors.white12 : const Color(0xFFF3F4F6),
-                      height: 1),
-                  const SizedBox(height: 16),
-
-                  // Notes for selected day
-                  if (_selectedDay != null)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        dayNotes.isEmpty
-                            ? 'No notes on ${_shortDate(_selectedDay!)}'
-                            : '${dayNotes.length} note${dayNotes.length == 1 ? '' : 's'} on ${_shortDate(_selectedDay!)}',
+        _buildTabHeader('Notes', isDark, brandColor, searchHint: 'Search all notes...'),
+        
+        // Horizontal Folders choice chips
+        if (folders.isNotEmpty) ...[
+          SizedBox(
+            height: 48,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: folders.length + 1,
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  final isAllSelected = _selectedFolderId == null;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ChoiceChip(
+                      showCheckmark: false,
+                      label: Text(
+                        'All Notes',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: subtleColor,
+                          fontWeight: FontWeight.bold,
+                          color: isAllSelected ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF2C2A29)),
                         ),
                       ),
+                      selected: isAllSelected,
+                      selectedColor: brandColor,
+                      backgroundColor: isDark ? const Color(0xFF1E2124) : const Color(0xFFFAF2E6),
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedFolderId = null;
+                        });
+                      },
                     ),
-                  const SizedBox(height: 12),
-
-                  ...dayNotes.map(
-                    (note) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _buildNoteListRow(note, isDark, primaryColor),
+                  );
+                }
+                final folder = folders[index - 1];
+                final isSelected = folder.id == _selectedFolderId;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ChoiceChip(
+                    showCheckmark: false,
+                    avatar: Icon(
+                      Icons.folder_open,
+                      size: 16,
+                      color: isSelected ? Colors.white : Color(folder.colorValue),
                     ),
+                    label: Text(
+                      folder.name,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF2C2A29)),
+                      ),
+                    ),
+                    selected: isSelected,
+                    selectedColor: brandColor,
+                    backgroundColor: isDark ? const Color(0xFF1E2124) : const Color(0xFFFAF2E6),
+                    onSelected: (_) {
+                      setState(() {
+                        _selectedFolderId = folder.id;
+                      });
+                    },
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
-        ),
-      ],
-    );
-  }
+          const SizedBox(height: 12),
+        ],
 
-  String _shortDate(DateTime d) {
-    const months = [
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec'
-    ];
-    return '${d.day} ${months[d.month - 1]}';
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  TAB 1 – NOTES (All Notes)
-  // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildNotesTab(
-      List<Note> allNotes, bool isDark, Color primaryColor) {
-    final subtleColor = isDark ? Colors.white38 : const Color(0xFF9CA3AF);
-    List<Note> notes = List.from(allNotes)
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-
-    if (_search.isNotEmpty) {
-      final q = _search.toLowerCase();
-      notes = notes
-          .where((n) =>
-              n.title.toLowerCase().contains(q) ||
-              n.content.toLowerCase().contains(q) ||
-              n.checklist.any((c) => c.text.toLowerCase().contains(q)))
-          .toList();
-    }
-
-    return Column(
-      children: [
-        _buildTabHeader('Notes', isDark, primaryColor,
-            searchHint: 'Search all notes...'),
         Expanded(
-          child: notes.isEmpty
-              ? _buildNoResults(isDark, subtleColor)
+          child: filteredNotes.isEmpty
+              ? _buildNoResults(isDark, const Color(0xFF8F887F))
               : GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 100.0),
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: filteredNotes.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    childAspectRatio: 0.78,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.90,
                   ),
-                  itemCount: notes.length,
-                  itemBuilder: (_, i) => NoteCard(
-                    note: notes[i],
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) =>
-                              NoteDetailScreen(noteId: notes[i].id)),
-                    ),
-                  ),
+                  itemBuilder: (context, index) {
+                    final note = filteredNotes[index];
+                    return NoteCard(
+                      note: note,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => NoteDetailScreen(noteId: note.id),
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
         ),
       ],
@@ -571,250 +776,276 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  //  TAB 2 – HOME (Sections + FAB)
+  //  TAB 2 – HOME (Premium Mockup UI exact replica)
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildHomeTab(
+    List<Note> sortedNotes,
+    List<Folder> folders,
+    Color brandColor,
     bool isDark,
-    Color primaryColor,
-    List<Note> pinned,
-    List<Note> favorites,
-    List<Note> recent,
-    List<Note> allNotes,
+    List<Note> pinnedNotes,
+    List<Note> favoriteNotes,
+    List<Note> recentNotes,
   ) {
-    final isDarkMode = ref.watch(themeProvider) == ThemeMode.dark;
-    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final isWorkspaceEmpty = sortedNotes.isEmpty && folders.isEmpty;
 
-    if (allNotes.isEmpty) return const EmptyState();
+    if (isWorkspaceEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(context, 'Nuvio', 'Your notes, Beautifully Organized', brandColor),
+          const Expanded(child: EmptyState()),
+        ],
+      );
+    }
 
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 120),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Home header (special — has title + dark mode toggle)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Nuvio',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: textColor,
-                        ),
+          // Premium Header
+          _buildHeader(context, 'Nuvio', 'Your notes, Beautifully Organized', brandColor),
+
+          // --- Pinned Section ---
+          if (pinnedNotes.isNotEmpty) ...[
+            _buildSectionTitle('Pinned', () => _switchTab(1), brandColor),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 190,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: pinnedNotes.length,
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                itemBuilder: (context, index) {
+                  final note = pinnedNotes[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 14.0),
+                    child: SizedBox(
+                      width: 280,
+                      child: NoteCard(
+                        note: note,
+                        showThickLeftBorder: index == 0,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => NoteDetailScreen(noteId: note.id),
+                            ),
+                          );
+                        },
                       ),
-                      Text(
-                        'Your notes, beautifully organized.',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13,
-                          color: isDark
-                              ? Colors.white38
-                              : const Color(0xFF9CA3AF),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          // --- Favorites Section ---
+          if (favoriteNotes.isNotEmpty) ...[
+            _buildSectionTitle('Favorites', () => _switchTab(1), brandColor),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: favoriteNotes.take(4).length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  childAspectRatio: 1.0,
                 ),
-                // Dark mode toggle
-                GestureDetector(
-                  onTap: () =>
-                      ref.read(themeProvider.notifier).toggleTheme(),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    width: 48,
-                    height: 48,
+                itemBuilder: (context, index) {
+                  final note = favoriteNotes[index];
+                  final noteIcon = _getNoteIcon(note);
+                  final cardColor = isDark ? const Color(0xFF1E2124) : Colors.white;
+                  final borderCol = isDark ? Colors.white12 : const Color(0xFFE2E2E7);
+
+                  return Container(
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF1C1E22)
-                          : const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(14),
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: borderCol, width: 1.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(5),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        isDarkMode
-                            ? Icons.wb_sunny_rounded
-                            : Icons.nightlight_round,
-                        key: ValueKey(isDarkMode),
-                        color: isDarkMode
-                            ? const Color(0xFFFACC15)
-                            : const Color(0xFF6B7280),
-                        size: 22,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => NoteDetailScreen(noteId: note.id),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(28),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: brandColor.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Icon(
+                                    noteIcon,
+                                    color: brandColor,
+                                    size: 20,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.star,
+                                  color: brandColor,
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                            Text(
+                              note.title.isNotEmpty ? note.title : 'Untitled',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : const Color(0xFF1a1c1f),
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Divider(
-              color: isDark ? Colors.white12 : const Color(0xFFF3F4F6),
-              height: 1),
-          const SizedBox(height: 8),
-
-          // ── Pinned section ────────────────────────────────────────────
-          if (pinned.isNotEmpty) ...[
-            _buildSectionHeader(
-              title: 'Pinned',
-              count: pinned.length,
-              isDark: isDark,
-              primaryColor: primaryColor,
-              onViewAll: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const PinnedNotesScreen()),
+                  );
+                },
               ),
             ),
-            const SizedBox(height: 10),
-            _buildHorizontalNoteCards(pinned),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
           ],
 
-          // ── Favorites section ─────────────────────────────────────────
-          if (favorites.isNotEmpty) ...[
-            _buildSectionHeader(
-              title: 'Favorites',
-              count: favorites.length,
-              isDark: isDark,
-              primaryColor: primaryColor,
-              onViewAll: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const FavoritesScreen()),
+          // --- Recent Section ---
+          if (recentNotes.isNotEmpty) ...[
+            _buildSectionTitle('Recent', () => _switchTab(1), brandColor),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: recentNotes.take(5).length,
+                itemBuilder: (context, index) {
+                  final note = recentNotes[index];
+                  final noteIcon = _getNoteIcon(note);
+                  final itemBgColor = isDark ? const Color(0xFF1E2124) : Colors.white;
+                  final borderCol = isDark ? Colors.white12 : const Color(0xFFE2E2E7);
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: itemBgColor,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: borderCol, width: 1.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => NoteDetailScreen(noteId: note.id),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(24),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: brandColor.withOpacity(0.08),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                noteIcon,
+                                color: brandColor,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    note.title.isNotEmpty ? note.title : 'Untitled',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : const Color(0xFF1a1c1f),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    _formatTimeEdited(note.updatedAt),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: const Color(0xFF8F887F),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: Color(0xFF8F887F),
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-            const SizedBox(height: 10),
-            _buildHorizontalNoteCards(favorites),
-            const SizedBox(height: 20),
-          ],
-
-          // ── Recent section ────────────────────────────────────────────
-          if (recent.isNotEmpty) ...[
-            _buildSectionHeader(
-              title: 'Recent',
-              count: recent.length,
-              isDark: isDark,
-              primaryColor: primaryColor,
-              onViewAll: () => _switchTab(1), // → Notes tab
-            ),
-            const SizedBox(height: 10),
-            _buildHorizontalNoteCards(recent),
           ],
         ],
       ),
     );
   }
 
-  // ── Redesigned Section Header ─────────────────────────────────────────────
-  Widget _buildSectionHeader({
-    required String title,
-    required int count,
-    required bool isDark,
-    required Color primaryColor,
-    required VoidCallback onViewAll,
-  }) {
-    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    return GestureDetector(
-      onTap: onViewAll,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        child: Row(
-          children: [
-            // Accent bar
-            Container(
-              width: 4,
-              height: 20,
-              decoration: BoxDecoration(
-                color: primaryColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              title,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: textColor,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: primaryColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '$count',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: primaryColor,
-                ),
-              ),
-            ),
-            const Spacer(),
-            Row(
-              children: [
-                Text(
-                  'View All',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: primaryColor,
-                  ),
-                ),
-                const SizedBox(width: 2),
-                Icon(Icons.arrow_forward_ios_rounded,
-                    size: 12, color: primaryColor),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Redesigned Horizontal Note Cards ─────────────────────────────────────
-  Widget _buildHorizontalNoteCards(List<Note> notes) {
-    return SizedBox(
-      height: 220,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: notes.length,
-        itemBuilder: (_, i) {
-          final note = notes[i];
-          return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: SizedBox(
-              width: 172,
-              child: NoteCard(
-                note: note,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => NoteDetailScreen(noteId: note.id)),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
-  //  TAB 3 – FOLDERS
+  //  TAB 3 – FOLDERS (Nesting Subfolders & Notes list)
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildFoldersTab(
     bool isDark,
@@ -920,7 +1151,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ],
     );
   }
-
 
   Widget _buildFolderRow(
       Folder folder, int noteCount, bool isDark, Color primaryColor) {
@@ -1089,7 +1319,155 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  //  EMPTY STATES
+  //  TAB 4 – SETTINGS (Theme Config & System Info inline)
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildSettingsTab(
+    Color brandColor,
+    bool isDark,
+  ) {
+    final colors = [
+      0xFF0058BC, // Blue
+      0xFF000000, // Black
+      0xFFEF5350, // Red
+      0xFF059669, // Green
+      0xFF7C3AED, // Purple
+      0xFFFFA726, // Orange
+    ];
+
+    final customColor = ref.watch(customThemeColorProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildHeader(context, 'Settings', 'Personalize your workspace theme', brandColor),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 100.0),
+            physics: const BouncingScrollPhysics(),
+            children: [
+              Text(
+                'APPEARANCE',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF8F887F),
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 10),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  'Dark Theme Mode',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF1a1c1f),
+                  ),
+                ),
+                subtitle: Text(
+                  'Enable comfortable viewing at night',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    color: const Color(0xFF8F887F),
+                  ),
+                ),
+                value: isDark,
+                activeColor: brandColor,
+                onChanged: (_) {
+                  ref.read(themeProvider.notifier).toggleTheme();
+                },
+              ),
+              const Divider(height: 32, color: Colors.white10),
+
+              Text(
+                'BRAND COLOR THEME',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF8F887F),
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: colors.map((cVal) {
+                  final isSelected = cVal == customColor.value;
+                  return InkWell(
+                    onTap: () {
+                      ref.read(customThemeColorProvider.notifier).updateColor(Color(cVal));
+                    },
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Color(cVal),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected
+                              ? (isDark ? Colors.white : const Color(0xFF1A1A1A))
+                              : Colors.white24,
+                          width: isSelected ? 3.0 : 1.0,
+                        ),
+                        boxShadow: [
+                          if (isSelected)
+                            BoxShadow(
+                              color: Color(cVal).withOpacity(0.4),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const Divider(height: 32, color: Colors.white10),
+
+              Text(
+                'ABOUT',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF8F887F),
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: brandColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.info_outline, color: brandColor),
+                ),
+                title: Text(
+                  'Nuvio Notes v1.0.2',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF1a1c1f),
+                  ),
+                ),
+                subtitle: Text(
+                  'Offline-first Recycled Canvas design.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF8F887F)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  EMPTY & GENERAL STATES
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildNoResults(bool isDark, Color subtleColor) {
     return Center(
@@ -1133,95 +1511,103 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  NAVIGATION BAR (5 items: Calendar, Notes, Home, Folders, Settings)
-  // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildNavBar(BuildContext context, bool isDark, Color primaryColor) {
-    final items = [
-      _NavItem(0, Icons.calendar_month_outlined, Icons.calendar_month_rounded,
-          'Calendar'),
-      _NavItem(1, Icons.description_outlined, Icons.description_rounded,
-          'Notes'),
-      _NavItem(2, Icons.home_outlined, Icons.home_rounded, 'Home'),
-      _NavItem(
-          3, Icons.folder_open_outlined, Icons.folder_rounded, 'Folders'),
-      _NavItem(4, Icons.settings_outlined, Icons.settings_rounded, 'Settings'),
-    ];
-
-    return Container(
-      height: 72 + MediaQuery.of(context).padding.bottom,
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF15171A) : Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.07),
-            blurRadius: 16,
-            offset: const Offset(0, -3),
+  Widget _buildNoNotesFoundState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.search_off, size: 48, color: Color(0xFF8F887F)),
+          const SizedBox(height: 12),
+          Text(
+            'No matching notes found.',
+            style: GoogleFonts.plusJakartaSans(
+              color: const Color(0xFF8F887F),
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: items.map((item) {
-          final isActive = _currentTab == item.index;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => _switchTab(item.index),
-              behavior: HitTestBehavior.opaque,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? primaryColor.withOpacity(0.12)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      isActive ? item.activeIcon : item.icon,
-                      color: isActive
-                          ? primaryColor
-                          : (isDark
-                              ? Colors.white38
-                              : const Color(0xFFB0B8C1)),
-                      size: isActive ? 24 : 22,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 200),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10,
-                      fontWeight: isActive
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      color: isActive
-                          ? primaryColor
-                          : (isDark
-                              ? Colors.white38
-                              : const Color(0xFFB0B8C1)),
-                    ),
-                    child: Text(item.label),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
       ),
     );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  //  FOLDER ACTIONS (long-press)
+  //  BOTTOM NAVIGATION BAR (Docked glass design)
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildBottomNavigationBar(BuildContext context, Color primaryColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final navBgColor = isDark ? const Color(0xFF15171A).withOpacity(0.9) : const Color(0xFFFFFFFF).withOpacity(0.9);
+    final borderColor = isDark ? Colors.white10 : const Color(0xFFE2E2E7);
+    
+    return Container(
+      height: 84,
+      decoration: BoxDecoration(
+        color: navBgColor,
+        border: Border(
+          top: BorderSide(color: borderColor, width: 0.8),
+        ),
+      ),
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(0, Icons.calendar_today_outlined, 'Calendar', primaryColor),
+              _buildNavItem(1, Icons.description_outlined, 'Notes', primaryColor),
+              _buildNavItem(2, Icons.home, 'Home', primaryColor, fillIcon: true),
+              _buildNavItem(3, Icons.folder_outlined, 'Folders', primaryColor),
+              _buildNavItem(4, Icons.settings_outlined, 'Settings', primaryColor),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label, Color primaryColor, {bool fillIcon = false}) {
+    final isSelected = _currentTab == index;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final Color itemColor = isSelected 
+        ? primaryColor 
+        : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B665E));
+        
+    return Expanded(
+      child: InkWell(
+        onTap: () => _switchTab(index),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isSelected && fillIcon ? Icons.home_rounded : icon,
+                color: itemColor,
+                size: 24,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                  color: itemColor,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  FOLDER ACTIONS (long-press) & MODAL SHEETS
   // ═══════════════════════════════════════════════════════════════════════════
   void _showFolderOptionsSheet(Folder folder) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1319,7 +1705,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ── Create Folder ──────────────────────────────────────────────────────────
   void _showCreateFolderSheet() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
@@ -1452,12 +1837,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         onPressed: () {
                           final name = nameCtrl.text.trim();
                           if (name.isNotEmpty) {
-                            // Create folder BUT do NOT navigate into it
                             ref.read(foldersProvider.notifier).addFolder(
                                 name, selectedColor,
                                 parentId: _selectedFolderId);
                             Navigator.pop(ctx);
-                            // Stay on folders tab — no setState for selectedFolderId
                           }
                         },
                         style: ElevatedButton.styleFrom(

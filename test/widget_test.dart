@@ -30,8 +30,8 @@ void main() {
       ),
     );
 
-    // Verify Search Bar is present
-    expect(find.text('Search notes & checklists...'), findsOneWidget);
+    // Verify Brand Header Subtitle is present on default Home tab
+    expect(find.text('Your notes, Beautifully Organized'), findsOneWidget);
 
     // Verify EmptyState illustration is present (A blank canvas text)
     expect(find.text('A blank canvas'), findsOneWidget);
