@@ -206,9 +206,13 @@ class NoteCard extends ConsumerWidget {
   }
 
   void _showNoteOptions(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final sheetBg = isDark ? const Color(0xFF15171A) : Colors.white;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFFFFFFFF),
+      backgroundColor: sheetBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -217,26 +221,35 @@ class NoteCard extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Container(
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE5DEC9),
+                  color: isDark ? Colors.white24 : const Color(0xFFE5E7EB),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: Icon(
-                  note.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
-                  color: const Color(0xFF2C2A29),
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: textColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    note.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                    color: textColor,
+                    size: 20,
+                  ),
                 ),
                 title: Text(
                   note.isPinned ? 'Unpin Note' : 'Pin Note',
                   style: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF2C2A29),
+                    color: textColor,
                   ),
                 ),
                 onTap: () {
@@ -245,9 +258,18 @@ class NoteCard extends ConsumerWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(
-                  Icons.delete_outline,
-                  color: Colors.redAccent,
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.redAccent,
+                    size: 20,
+                  ),
                 ),
                 title: Text(
                   'Delete Note',
@@ -261,7 +283,7 @@ class NoteCard extends ConsumerWidget {
                   Navigator.pop(context);
                 },
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
             ],
           ),
         );
