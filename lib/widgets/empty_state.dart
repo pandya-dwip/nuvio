@@ -60,7 +60,7 @@ class EmptyStateIllustrationPainter extends CustomPainter {
       ..isAntiAlias = true;
 
     final solidPaint = Paint()
-      ..color = const Color(0xFFFAF8F5) // Clean white
+      ..color = const Color(0xFFFFFFFF) // Clean white
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,14 +17,35 @@ class NoteCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cardColor = Color(note.colorValue);
+    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+    
+    // In dark mode, if the note has default white color (0xFFFFFFFF), use the theme's card color.
+    final cardColor = (note.colorValue == 0xFFFFFFFF && isDarkTheme)
+        ? Theme.of(context).colorScheme.surface
+        : Color(note.colorValue);
+
+    final isCardDark = ThemeData.estimateBrightnessForColor(cardColor) == Brightness.dark;
+
+    final textColor = isCardDark ? Colors.white : const Color(0xFF2C2A29);
+    final textMuted = isCardDark ? Colors.white70 : const Color(0xFF6B665E);
+    final textSecondary = isCardDark ? Colors.white60 : const Color(0xFF8F887F);
+    final borderColor = isDarkTheme ? Colors.white12 : const Color(0xFFE5DEC9).withAlpha(128);
+
+    // Find first image block in note
+    String? imageUrl;
+    for (final block in note.blocks) {
+      if (block.type == BlockType.image && block.images.isNotEmpty) {
+        imageUrl = block.images.first.url;
+        break;
+      }
+    }
 
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFE5DEC9).withAlpha(128),
+          color: borderColor,
           width: 1.0,
         ),
         boxShadow: [
@@ -43,14 +65,29 @@ class NoteCard extends ConsumerWidget {
             // Show options dialog (Pin/Unpin, Delete)
             _showNoteOptions(context, ref);
           },
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Title and Star icon
-                Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (imageUrl != null)
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  child: Image.file(
+                    File(imageUrl),
+                    width: double.infinity,
+                    height: 100,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Title and Star icon
+                    Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
@@ -59,16 +96,16 @@ class NoteCard extends ConsumerWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF2C2A29), // Deep warm charcoal
+                          color: textColor, // Dynamic title color
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (note.isPinned)
-                      const Icon(
-                        Icons.star,
-                        color: Color(0xFFF5A25D), // Gold star
+                      Icon(
+                        Icons.push_pin,
+                        color: Theme.of(context).primaryColor, // Dynamic pin color
                         size: 18,
                       ),
                   ],
@@ -83,7 +120,7 @@ class NoteCard extends ConsumerWidget {
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
                       height: 1.4,
-                      color: const Color(0xFF6B665E), // Muted grey
+                      color: textMuted, // Dynamic body color
                     ),
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
@@ -105,8 +142,8 @@ class NoteCard extends ConsumerWidget {
                                   : Icons.check_box_outline_blank,
                               size: 16,
                               color: item.isChecked
-                                  ? const Color(0xFFF5A25D)
-                                  : const Color(0xFF8F887F),
+                                  ? Theme.of(context).primaryColor
+                                  : textSecondary, // Dynamic checkbox border color
                             ),
                             const SizedBox(width: 6),
                             Expanded(
@@ -119,8 +156,8 @@ class NoteCard extends ConsumerWidget {
                                       ? TextDecoration.lineThrough
                                       : null,
                                   color: item.isChecked
-                                      ? const Color(0xFF9CA3AF)
-                                      : const Color(0xFF4A453F),
+                                      ? (isCardDark ? Colors.white38 : const Color(0xFF9CA3AF))
+                                      : textMuted, // Dynamic checklist text color
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -140,15 +177,17 @@ class NoteCard extends ConsumerWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFF8F887F),
+                    color: textSecondary, // Dynamic metadata color
                   ),
                 ),
               ],
             ),
           ),
-        ),
+        ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   String _formatLastEdited(DateTime date) {
@@ -169,7 +208,7 @@ class NoteCard extends ConsumerWidget {
   void _showNoteOptions(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFFFAF8F5),
+      backgroundColor: const Color(0xFFFFFFFF),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -190,7 +229,7 @@ class NoteCard extends ConsumerWidget {
               const SizedBox(height: 16),
               ListTile(
                 leading: Icon(
-                  note.isPinned ? Icons.star_border : Icons.star,
+                  note.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
                   color: const Color(0xFF2C2A29),
                 ),
                 title: Text(

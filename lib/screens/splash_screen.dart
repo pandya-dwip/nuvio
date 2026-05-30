@@ -105,7 +105,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE5DEC9), // Color behind curled sheets
+      backgroundColor: const Color(0xFFFFFFFF), // Color behind curled sheets
       body: AnimatedBuilder(
         animation: _entranceController,
         builder: (context, child) {
@@ -118,7 +118,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
           width: double.infinity,
           height: double.infinity,
           decoration: const BoxDecoration(
-            color: Color(0xFFFAF8F5), // Ivory Paper canvas background
+            color: Color(0xFFFFFFFF),
           ),
           child: Stack(
             children: [
@@ -423,7 +423,7 @@ class PaperDetailsPainter extends CustomPainter {
 
     final paintFlap1 = Paint()
       ..shader = const LinearGradient(
-        colors: [Color(0xFFFAF8F5), Color(0xFFDFD7C7)],
+        colors: [Color(0xFFFFFFFF), Color(0xFFE5E7EB)],
         begin: Alignment.bottomLeft,
         end: Alignment.topRight,
       ).createShader(Rect.fromLTWH(size.width - 120, 0, 120, 120));
@@ -460,7 +460,7 @@ class PaperDetailsPainter extends CustomPainter {
 
     final paintFlap2 = Paint()
       ..shader = const LinearGradient(
-        colors: [Color(0xFFFAF8F5), Color(0xFFDFD7C7)],
+        colors: [Color(0xFFFFFFFF), Color(0xFFE5E7EB)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ).createShader(Rect.fromLTWH(size.width - 130, size.height - 130, 130, 130));

@@ -1,8 +1,35 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/note_model.dart';
 
 class NotesNotifier extends StateNotifier<List<Note>> {
-  NotesNotifier() : super([]);
+  NotesNotifier() : super([]) {
+    _loadNotes();
+  }
+
+  Future<void> _loadNotes() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString('nuvio_notes');
+      if (data != null) {
+        final List<dynamic> jsonList = jsonDecode(data);
+        state = jsonList.map((j) => Note.fromJson(j as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      state = [];
+    }
+  }
+
+  Future<void> _saveNotes() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = state.map((n) => n.toJson()).toList();
+      await prefs.setString('nuvio_notes', jsonEncode(jsonList));
+    } catch (e) {
+      // Handle saving errors silently
+    }
+  }
 
   // Adds a note and returns the newly created Note object
   Note addNote({
@@ -10,6 +37,7 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     required String content,
     required int colorValue,
     required List<ChecklistItem> checklist,
+    List<NoteBlock> blocks = const [],
     String? folderId,
     bool isPinned = false,
     bool isFavorite = false,
@@ -25,8 +53,10 @@ class NotesNotifier extends StateNotifier<List<Note>> {
       updatedAt: DateTime.now(),
       colorValue: colorValue,
       checklist: checklist,
+      blocks: blocks,
     );
     state = [...state, newNote];
+    _saveNotes();
     return newNote;
   }
 
@@ -36,6 +66,7 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     String? content,
     int? colorValue,
     List<ChecklistItem>? checklist,
+    List<NoteBlock>? blocks,
     String? folderId,
     bool? isPinned,
     bool? isFavorite,
@@ -47,6 +78,7 @@ class NotesNotifier extends StateNotifier<List<Note>> {
           content: content,
           colorValue: colorValue,
           checklist: checklist,
+          blocks: blocks,
           folderId: folderId,
           isPinned: isPinned,
           isFavorite: isFavorite,
@@ -55,6 +87,7 @@ class NotesNotifier extends StateNotifier<List<Note>> {
       }
       return note;
     }).toList();
+    _saveNotes();
   }
 
   void togglePin(String id) {
@@ -67,6 +100,7 @@ class NotesNotifier extends StateNotifier<List<Note>> {
       }
       return note;
     }).toList();
+    _saveNotes();
   }
 
   void toggleFavorite(String id) {
@@ -79,6 +113,7 @@ class NotesNotifier extends StateNotifier<List<Note>> {
       }
       return note;
     }).toList();
+    _saveNotes();
   }
 
   void duplicateNote(String id) {
@@ -94,16 +129,20 @@ class NotesNotifier extends StateNotifier<List<Note>> {
       updatedAt: DateTime.now(),
       colorValue: original.colorValue,
       checklist: original.checklist.map((item) => item.copyWith()).toList(),
+      blocks: original.blocks.map((block) => block.copyWith()).toList(),
     );
     state = [...state, duplicated];
+    _saveNotes();
   }
 
   void deleteNote(String id) {
     state = state.where((note) => note.id != id).toList();
+    _saveNotes();
   }
 
   void deleteNotesInFolder(String folderId) {
     state = state.where((note) => note.folderId != folderId).toList();
+    _saveNotes();
   }
 
   void removeFolderLink(String folderId) {
@@ -113,6 +152,7 @@ class NotesNotifier extends StateNotifier<List<Note>> {
       }
       return note;
     }).toList();
+    _saveNotes();
   }
 }
 

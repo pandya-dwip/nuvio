@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Nuvio needs access to the camera to let you take photos and attach them directly to your notes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Nuvio needs access to your photo library to let you upload and attach images to your notes.</string>
 </dict>
 </plist>

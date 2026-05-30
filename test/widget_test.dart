@@ -31,7 +31,7 @@ void main() {
     );
 
     // Verify Search Bar is present
-    expect(find.text('Search notes...'), findsOneWidget);
+    expect(find.text('Search notes & checklists...'), findsOneWidget);
 
     // Verify EmptyState illustration is present (A blank canvas text)
     expect(find.text('A blank canvas'), findsOneWidget);

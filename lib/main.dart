@@ -20,12 +20,13 @@ class NuvioApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
+    final customColor = ref.watch(customThemeColorProvider);
 
     return MaterialApp(
       title: 'Nuvio',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme(customColor),
+      darkTheme: AppTheme.darkTheme(customColor),
       themeMode: themeMode,
       home: const SplashScreen(),
     );
