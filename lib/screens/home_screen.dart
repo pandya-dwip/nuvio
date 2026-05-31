@@ -1,4 +1,8 @@
-import 'dart:ui';
+
+import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +18,8 @@ import '../screens/note_detail_screen.dart';
 import '../screens/pinned_notes_screen.dart';
 import '../screens/favorites_screen.dart';
 import '../screens/accent_color_screen.dart';
-import '../screens/splash_screen.dart';
+import '../screens/data_management_screen.dart';
+
 import '../themes/app_theme.dart';
 
 // ── Tab indices ──────────────────────────────────────────────────────────────
@@ -50,6 +55,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _kDefaultTab);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndTriggerAutoBackup();
+    });
   }
 
   @override
@@ -58,6 +66,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _settingsSearchCtrl.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkAndTriggerAutoBackup() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final interval = prefs.getString('backup_interval') ?? 'Never';
+      if (interval == 'Never') return;
+
+      final lastBackupMs = prefs.getInt('last_backup_time') ?? 0;
+      final lastBackup = DateTime.fromMillisecondsSinceEpoch(lastBackupMs);
+      final now = DateTime.now();
+
+      bool isDue = false;
+      if (lastBackupMs == 0) {
+        isDue = true;
+      } else {
+        final difference = now.difference(lastBackup);
+        if (interval == 'Daily' && difference.inDays >= 1) {
+          isDue = true;
+        } else if (interval == 'Weekly' && difference.inDays >= 7) {
+          isDue = true;
+        } else if (interval == 'Monthly' && difference.inDays >= 30) {
+          isDue = true;
+        }
+      }
+
+      if (isDue) {
+        final notes = ref.read(notesProvider);
+        final folders = ref.read(foldersProvider);
+
+        final dataMap = {
+          'notes': notes.map((n) => n.toJson()).toList(),
+          'folders': folders.map((f) => f.toJson()).toList(),
+        };
+
+        final jsonStr = jsonEncode(dataMap);
+        final docs = await getApplicationDocumentsDirectory();
+        final backupDir = Directory('${docs.path}/nuvio_backups');
+        if (!await backupDir.exists()) {
+          await backupDir.create(recursive: true);
+        }
+
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final formattedDate = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_'
+            '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+        
+        final file = File('${backupDir.path}/nuvio_backup_${formattedDate}_$timestamp.json');
+        await file.writeAsString(jsonStr);
+
+        await prefs.setInt('last_backup_time', now.millisecondsSinceEpoch);
+        debugPrint('Automatic backup triggered: ${file.path}');
+      }
+    } catch (e) {
+      debugPrint('Failed to run automatic backup check: $e');
+    }
   }
 
   void _switchTab(int index) {
@@ -101,19 +164,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Icons.description_outlined;
   }
 
-  // --- Helper to get name of week day ---
-  String _getDayName(int weekday) {
-    switch (weekday) {
-      case 1: return 'MON';
-      case 2: return 'TUE';
-      case 3: return 'WED';
-      case 4: return 'THU';
-      case 5: return 'FRI';
-      case 6: return 'SAT';
-      case 7: return 'SUN';
-      default: return '';
-    }
-  }
+
 
   // --- Time Formatter Helper ---
   String _formatTimeEdited(DateTime date) {
@@ -1633,79 +1684,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  SHARED: Note List Row (calendar / folder)
-  // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildNoteListRow(Note note, bool isDark, Color primaryColor) {
-    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final subtleColor = isDark ? Colors.white38 : const Color(0xFF9CA3AF);
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => NoteDetailScreen(noteId: note.id)),
-      ),
-      child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1E22) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black
-                  .withOpacity(isDark ? 0.2 : 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: Color(note.colorValue),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    note.title.isEmpty ? 'Untitled' : note.title,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (note.content.isNotEmpty)
-                    Text(
-                      note.content,
-                      style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12, color: subtleColor),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded,
-                size: 18,
-                color:
-                    isDark ? Colors.white24 : const Color(0xFFD1D5DB)),
-          ],
-        ),
-      ),
-    );
-  }
-
   // Unused bottom sheets removed to clean up settings tab code
 
   Widget _buildSettingsTab(
@@ -1760,6 +1738,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         'personalize'.contains(_settingsSearch.toLowerCase()) ||
         'theme'.contains(_settingsSearch.toLowerCase());
 
+    final showTemplates = _settingsSearch.isEmpty ||
+        'templates'.contains(_settingsSearch.toLowerCase()) ||
+        'coming soon'.contains(_settingsSearch.toLowerCase()) ||
+        'preset'.contains(_settingsSearch.toLowerCase());
+
+    final showDataManagement = _settingsSearch.isEmpty ||
+        'data management'.contains(_settingsSearch.toLowerCase()) ||
+        'backup'.contains(_settingsSearch.toLowerCase()) ||
+        'restore'.contains(_settingsSearch.toLowerCase()) ||
+        'import'.contains(_settingsSearch.toLowerCase()) ||
+        'export'.contains(_settingsSearch.toLowerCase()) ||
+        'json'.contains(_settingsSearch.toLowerCase());
+
+    final showAboutNuvio = _settingsSearch.isEmpty ||
+        'about'.contains(_settingsSearch.toLowerCase()) ||
+        'nuvio'.contains(_settingsSearch.toLowerCase()) ||
+        'version'.contains(_settingsSearch.toLowerCase()) ||
+        'developer'.contains(_settingsSearch.toLowerCase());
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1806,6 +1803,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 100.0),
             physics: const BouncingScrollPhysics(),
             children: [
+              // ── APPEARANCE SECTION ──
               if (showDarkMode || showAccentColor) ...[
                 Text(
                   'APPEARANCE',
@@ -1971,9 +1969,245 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                   ),
                 ),
+                const SizedBox(height: 24),
+              ],
+
+              // ── FEATURES SECTION ──
+              if (showTemplates) ...[
+                Text(
+                  'FEATURES',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: subtleColor,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                
+                // Templates (Coming soon)
+                Container(
+                  decoration: BoxDecoration(
+                    color: cardBg.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: borderCol.withOpacity(0.5), width: 1.0),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: brandColor.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.dashboard_customize_outlined,
+                            color: brandColor.withOpacity(0.5),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Templates',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor.withOpacity(0.6),
+                                ),
+                              ),
+                              Text(
+                                'Pre-structured notepad layouts',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12,
+                                  color: subtleColor.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: brandColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Soon',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: brandColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // ── SYSTEM SECTION ──
+              if (showDataManagement || showAboutNuvio) ...[
+                Text(
+                  'SYSTEM',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: subtleColor,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+
+              // Data Management
+              if (showDataManagement) ...[
+                Container(
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: borderCol, width: 1.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DataManagementScreen()),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(24),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: brandColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.storage_rounded,
+                              color: brandColor,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Data Management',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                ),
+                                Text(
+                                  'Import, export, and backup data',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    color: subtleColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_right_rounded, color: subtleColor),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+
+              // About Nuvio
+              if (showAboutNuvio) ...[
+                Container(
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: borderCol, width: 1.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: InkWell(
+                    onTap: () => _showAboutNuvioSheet(context, isDark, brandColor),
+                    borderRadius: BorderRadius.circular(24),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: brandColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.info_outline_rounded,
+                              color: brandColor,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'About Nuvio',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                ),
+                                Text(
+                                  'App description and version details',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    color: subtleColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_right_rounded, color: subtleColor),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
               ],
               
-              if (!showDarkMode && !showAccentColor)
+              if (!showDarkMode && !showAccentColor && !showTemplates && !showDataManagement && !showAboutNuvio)
                 Padding(
                   padding: const EdgeInsets.only(top: 80),
                   child: Column(
@@ -1999,6 +2233,149 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
       ],
+    );
+
+  }
+
+  void _showAboutNuvioSheet(BuildContext context, bool isDark, Color brandColor) {
+    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final subtleColor = isDark ? Colors.white38 : const Color(0xFF8F887F);
+    final cardBg = isDark ? const Color(0xFF1E2124) : Colors.white;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF15171A) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: brandColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        Icons.edit_note_rounded,
+                        color: brandColor,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Nuvio',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: textColor,
+                          ),
+                        ),
+                        Text(
+                          'Elegant Offline Notes',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            color: subtleColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Description',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'A premium minimalist notes app designed to help you capture ideas, organize thoughts, and structure your life with elegance and ease. Nuvio is 100% offline, keeping your private data secure on your device.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: isDark ? Colors.white70 : const Color(0xFF4B5563),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark ? Colors.white12 : const Color(0xFFE2E2E7),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildAboutRow('Version', '1.0.0', textColor, subtleColor),
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      _buildAboutRow('Build Number', '1', textColor, subtleColor),
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      _buildAboutRow('Developer', 'pandya-dwip/', textColor, subtleColor),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAboutRow(String label, String value, Color textColor, Color subtleColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: subtleColor,
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2278,8 +2655,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         final nameCtrl = TextEditingController();
-        int selectedColor = 0xFF2563EB;
-        final colors = AppTheme.presetColors.values.toList();
+        int selectedColor = 0xFF5B67F1;
+        final colors = AppTheme.premiumColors.map((pc) => pc.color.value).toList();
         return StatefulBuilder(builder: (ctx, setS) {
           return Padding(
             padding:
@@ -2345,38 +2722,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
-                    height: 44,
+                    height: 48,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
                       itemCount: colors.length,
                       itemBuilder: (_, i) {
                         final cv = colors[i];
                         final isSel = cv == selectedColor;
+                        final circleColor = Color(cv);
+                        final isCircleDark = ThemeData.estimateBrightnessForColor(circleColor) == Brightness.dark;
+                        final borderColor = isSel 
+                            ? (isDark ? Colors.white : const Color(0xFF2C2A29))
+                            : (isDark ? Colors.white12 : const Color(0xFFE2E2E7));
+
                         return Padding(
-                          padding: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.only(right: 12),
                           child: GestureDetector(
                             onTap: () => setS(() => selectedColor = cv),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              width: isSel ? 44 : 36,
-                              height: isSel ? 44 : 36,
-                              decoration: BoxDecoration(
-                                color: Color(cv),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                    color: isSel
-                                        ? (isDark ? Colors.white : Colors.black87)
-                                        : Colors.black12,
-                                    width: isSel ? 2.5 : 1),
+                            child: Tooltip(
+                              message: AppTheme.premiumColors[i].name,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                width: isSel ? 44 : 38,
+                                height: isSel ? 44 : 38,
+                                decoration: BoxDecoration(
+                                  color: circleColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: borderColor,
+                                    width: isSel ? 2.5 : 1,
+                                  ),
+                                  boxShadow: isSel
+                                      ? [
+                                          BoxShadow(
+                                            color: circleColor.withOpacity(0.4),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 3),
+                                          )
+                                        ]
+                                      : null,
+                                ),
+                                child: isSel
+                                    ? Icon(
+                                        Icons.check_rounded,
+                                        color: isCircleDark ? Colors.white : Colors.black87,
+                                        size: 18,
+                                      )
+                                    : null,
                               ),
-                              child: isSel
-                                  ? Icon(Icons.check_rounded,
-                                      color:
-                                          Color(cv).computeLuminance() > 0.5
-                                              ? Colors.black
-                                              : Colors.white,
-                                      size: 16)
-                                  : null,
                             ),
                           ),
                         );
@@ -2385,6 +2779,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   const SizedBox(height: 24),
                   Row(children: [
+
                     Expanded(
                       child: TextButton(
                         onPressed: () => Navigator.pop(ctx),
@@ -2439,7 +2834,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       builder: (ctx) {
         final nameCtrl = TextEditingController(text: folder.name);
         int selectedColor = folder.colorValue;
-        final colors = AppTheme.presetColors.values.toList();
+        final colors = AppTheme.premiumColors.map((pc) => pc.color.value).toList();
         return StatefulBuilder(builder: (ctx, setS) {
           return Padding(
             padding:
@@ -2505,38 +2900,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
-                    height: 44,
+                    height: 48,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
                       itemCount: colors.length,
                       itemBuilder: (_, i) {
                         final cv = colors[i];
                         final isSel = cv == selectedColor;
+                        final circleColor = Color(cv);
+                        final isCircleDark = ThemeData.estimateBrightnessForColor(circleColor) == Brightness.dark;
+                        final borderColor = isSel 
+                            ? (isDark ? Colors.white : const Color(0xFF2C2A29))
+                            : (isDark ? Colors.white12 : const Color(0xFFE2E2E7));
+
                         return Padding(
-                          padding: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.only(right: 12),
                           child: GestureDetector(
                             onTap: () => setS(() => selectedColor = cv),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              width: isSel ? 44 : 36,
-                              height: isSel ? 44 : 36,
-                              decoration: BoxDecoration(
-                                color: Color(cv),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                    color: isSel
-                                        ? (isDark ? Colors.white : Colors.black87)
-                                        : Colors.black12,
-                                    width: isSel ? 2.5 : 1),
+                            child: Tooltip(
+                              message: AppTheme.premiumColors[i].name,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                width: isSel ? 44 : 38,
+                                height: isSel ? 44 : 38,
+                                decoration: BoxDecoration(
+                                  color: circleColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: borderColor,
+                                    width: isSel ? 2.5 : 1,
+                                  ),
+                                  boxShadow: isSel
+                                      ? [
+                                          BoxShadow(
+                                            color: circleColor.withOpacity(0.4),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 3),
+                                          )
+                                        ]
+                                      : null,
+                                ),
+                                child: isSel
+                                    ? Icon(
+                                        Icons.check_rounded,
+                                        color: isCircleDark ? Colors.white : Colors.black87,
+                                        size: 18,
+                                      )
+                                    : null,
                               ),
-                              child: isSel
-                                  ? Icon(Icons.check_rounded,
-                                      color:
-                                          Color(cv).computeLuminance() > 0.5
-                                              ? Colors.black
-                                              : Colors.white,
-                                      size: 16)
-                                  : null,
                             ),
                           ),
                         );
@@ -2545,6 +2957,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   const SizedBox(height: 24),
                   Row(children: [
+
                     Expanded(
                       child: TextButton(
                         onPressed: () => Navigator.pop(ctx),

@@ -90,6 +90,15 @@ class FoldersNotifier extends StateNotifier<List<Folder>> {
     state = [];
     _saveFolders();
   }
+
+  void importFolders(List<Folder> imported) {
+    final Map<String, Folder> folderMap = {for (var f in state) f.id: f};
+    for (var f in imported) {
+      folderMap[f.id] = f;
+    }
+    state = folderMap.values.toList();
+    _saveFolders();
+  }
 }
 
 final foldersProvider = StateNotifierProvider<FoldersNotifier, List<Folder>>((ref) {

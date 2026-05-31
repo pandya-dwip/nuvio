@@ -1,10 +1,11 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/note_model.dart';
-import '../models/folder_model.dart';
 import '../providers/notes_provider.dart';
 import '../providers/folders_provider.dart';
 import '../themes/app_theme.dart';
@@ -222,7 +223,10 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
       ),
     );
 
-    final colors = AppTheme.presetColors.values.toList();
+    final colors = [
+      0xFFFFFFFF,
+      ...AppTheme.premiumColors.map((pc) => pc.color.value),
+    ];
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     
     // Dynamic Scaffold background for dark mode support when note color is default white
@@ -272,30 +276,10 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
                 ref.read(notesProvider.notifier).toggleFavorite(widget.noteId);
               },
             ),
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_horiz, color: iconColor),
-              color: isDarkTheme ? const Color(0xFF1E2124) : const Color(0xFFFFFFFF),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              onSelected: (value) => _handleMenuOption(value, folders),
-              itemBuilder: (context) => [
-                _buildMenuItem('duplicate', Icons.copy_all, 'Duplicate Note'),
-                _buildMenuItem('move', Icons.folder_open, 'Move to Folder'),
-                _buildMenuItem('archive', Icons.archive_outlined, 'Archive'),
-                _buildMenuItem('tags', Icons.label_outline, 'Add Tags'),
-                _buildMenuItem('share', Icons.share_outlined, 'Share'),
-                _buildMenuItem('export', Icons.download_outlined, 'Export'),
-                const PopupMenuDivider(),
-                PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Text(
-                    'Delete Note',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
+            IconButton(
+              icon: Icon(Icons.ios_share, color: iconColor),
+              tooltip: 'Export Note',
+              onPressed: () => _exportSingleNote(note),
             ),
           ],
         ),
@@ -433,40 +417,67 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
                       const Divider(color: Color(0xFFE5DEC9), height: 1, thickness: 0.8),
                       const SizedBox(height: 16),
                       SizedBox(
-                        height: 40,
+                        height: 44,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
                           itemCount: colors.length,
                           itemBuilder: (context, index) {
                             final cValue = colors[index];
                             final isSelected = cValue == _colorValue;
+                            
+                            final circleColor = Color(cValue);
+                            final isCircleDark = ThemeData.estimateBrightnessForColor(circleColor) == Brightness.dark;
+                            
+                            final borderColor = isSelected 
+                                ? (isBgDark ? Colors.white : const Color(0xFF2C2A29))
+                                : (isDarkTheme ? Colors.white12 : const Color(0xFFE2E2E7));
+                                
                             return Padding(
                               padding: const EdgeInsets.only(right: 12.0),
-                              child: InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _colorValue = cValue;
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(20),
-                                child: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Color(cValue),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected ? (isBgDark ? Colors.white : const Color(0xFF2C2A29)) : const Color(0xFFE5DEC9),
-                                      width: isSelected ? 2.0 : 1.0,
+                              child: Tooltip(
+                                message: index == 0 ? 'Default Theme' : AppTheme.premiumColors[index - 1].name,
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _colorValue = cValue;
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(22),
+                                  child: Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: circleColor,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: borderColor,
+                                        width: isSelected ? 2.5 : 1.0,
+                                      ),
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: circleColor.withOpacity(0.4),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 3),
+                                              )
+                                            ]
+                                          : null,
                                     ),
+                                    child: isSelected
+                                        ? Icon(
+                                            Icons.check_rounded,
+                                            color: isCircleDark ? Colors.white : Colors.black87,
+                                            size: 20,
+                                          )
+                                        : (index == 0
+                                            ? Icon(
+                                                Icons.color_lens_outlined,
+                                                color: isDarkTheme ? Colors.white30 : Colors.black26,
+                                                size: 16,
+                                              )
+                                            : null),
                                   ),
-                                  child: isSelected
-                                      ? Icon(
-                                          Icons.check,
-                                          color: isBgDark ? Colors.white : const Color(0xFF2C2A29),
-                                          size: 18,
-                                        )
-                                      : null,
                                 ),
                               ),
                             );
@@ -1358,94 +1369,36 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen> {
     });
   }
 
-  PopupMenuItem<String> _buildMenuItem(String value, IconData icon, String text) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final itemColor = isDark ? Colors.white : const Color(0xFF2C2A29);
-    return PopupMenuItem<String>(
-      value: value,
-      child: Row(
-        children: [
-          Icon(icon, color: itemColor, size: 20),
-          const SizedBox(width: 12),
-          Text(
-            text,
-            style: GoogleFonts.plusJakartaSans(
-              color: itemColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  void _handleMenuOption(String option, List<Folder> folders) {
-    if (option == 'delete') {
-      ref.read(notesProvider.notifier).deleteNote(widget.noteId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Note deleted')),
+  Future<void> _exportSingleNote(Note note) async {
+    try {
+      final jsonStr = jsonEncode(note.toJson());
+      final bytes = utf8.encode(jsonStr);
+      final sanitizedTitle = note.title.trim().isEmpty
+          ? 'untitled'
+          : note.title.replaceAll(RegExp(r'[^\w\s\-]'), '').replaceAll(RegExp(r'\s+'), '_');
+      final fileName = 'nuvio_note_$sanitizedTitle.json';
+
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: 'Export Note',
+        fileName: fileName,
+        bytes: Uint8List.fromList(bytes),
       );
-      Navigator.pop(context);
-    } else if (option == 'duplicate') {
-      ref.read(notesProvider.notifier).duplicateNote(widget.noteId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Note duplicated')),
-      );
-      Navigator.pop(context);
-    } else if (option == 'move') {
-      _showMoveFolderDialog(context, folders);
-    } else {
-      // Mock other features (Archive, Tags, Share, Export)
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Note: $option completed (demo)')),
-      );
+
+      if (result != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Note exported successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to export note: $e')),
+        );
+      }
     }
   }
 
-  void _showMoveFolderDialog(BuildContext context, List<Folder> folders) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFFFFFFFF),
-          title: Text('Move Note to Folder', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-          content: folders.isEmpty
-              ? Text('No folders exist. Create one first.', style: GoogleFonts.plusJakartaSans())
-              : SizedBox(
-                  width: double.maxFinite,
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: folders.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return ListTile(
-                          title: const Text('Remove from Folder'),
-                          onTap: () {
-                            setState(() {
-                              _folderId = null;
-                            });
-                            Navigator.pop(context);
-                          },
-                        );
-                      }
-                      final folder = folders[index - 1];
-                      return ListTile(
-                        leading: Icon(Icons.folder, color: Color(folder.colorValue)),
-                        title: Text(folder.name),
-                        onTap: () {
-                          setState(() {
-                            _folderId = folder.id;
-                          });
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                  ),
-                ),
-        );
-      },
-    );
-  }
 
   void _showFullscreenImagePreview(BuildContext context, NoteImage noteImg) {
     showDialog(

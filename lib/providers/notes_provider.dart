@@ -159,6 +159,15 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     state = [];
     _saveNotes();
   }
+
+  void importNotes(List<Note> imported) {
+    final Map<String, Note> noteMap = {for (var note in state) note.id: note};
+    for (var note in imported) {
+      noteMap[note.id] = note;
+    }
+    state = noteMap.values.toList();
+    _saveNotes();
+  }
 }
 
 final notesProvider = StateNotifierProvider<NotesNotifier, List<Note>>((ref) {

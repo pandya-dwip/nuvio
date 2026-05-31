@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/note_model.dart';
 import '../models/folder_model.dart';
 import '../providers/notes_provider.dart';
@@ -228,6 +231,36 @@ class NoteCard extends ConsumerWidget {
     }
   }
 
+  Future<void> _exportNote(BuildContext context, Note note) async {
+    try {
+      final jsonStr = jsonEncode(note.toJson());
+      final bytes = utf8.encode(jsonStr);
+      final sanitizedTitle = note.title.trim().isEmpty 
+          ? 'untitled' 
+          : note.title.replaceAll(RegExp(r'[^\w\s\-]'), '').replaceAll(RegExp(r'\s+'), '_');
+      final fileName = 'nuvio_note_$sanitizedTitle.json';
+
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: 'Export Note',
+        fileName: fileName,
+        bytes: Uint8List.fromList(bytes),
+      );
+
+      if (!context.mounted) return;
+
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Note exported successfully!')),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to export note: $e')),
+      );
+    }
+  }
+
   void _showNoteOptions(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
@@ -254,6 +287,7 @@ class NoteCard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              // Pin/Unpin
               ListTile(
                 leading: Container(
                   width: 40,
@@ -280,6 +314,91 @@ class NoteCard extends ConsumerWidget {
                   Navigator.pop(context);
                 },
               ),
+              // Favorite/Unfavorite
+              ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: textColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    note.isFavorite ? Icons.star : Icons.star_border_rounded,
+                    color: note.isFavorite ? const Color(0xFFFFD700) : textColor,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  note.isFavorite ? 'Unfavorite Note' : 'Mark Favorite',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+                onTap: () {
+                  ref.read(notesProvider.notifier).toggleFavorite(note.id);
+                  Navigator.pop(context);
+                },
+              ),
+              // Duplicate
+              ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: textColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.copy_all_rounded,
+                    color: textColor,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  'Duplicate Note',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+                onTap: () {
+                  ref.read(notesProvider.notifier).duplicateNote(note.id);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Note duplicated')),
+                  );
+                },
+              ),
+              // Export
+              ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: textColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.ios_share_rounded,
+                    color: textColor,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  'Export Note',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _exportNote(context, note);
+                },
+              ),
+              // Delete
               ListTile(
                 leading: Container(
                   width: 40,

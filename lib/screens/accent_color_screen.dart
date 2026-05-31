@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/theme_provider.dart';
-
-class PremiumColor {
-  final String name;
-  final Color color;
-  const PremiumColor(this.name, this.color);
-}
+import '../themes/app_theme.dart';
 
 class AccentColorScreen extends ConsumerStatefulWidget {
   const AccentColorScreen({super.key});
@@ -19,59 +14,6 @@ class AccentColorScreen extends ConsumerStatefulWidget {
 class _AccentColorScreenState extends ConsumerState<AccentColorScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
-
-  static const List<PremiumColor> _allColors = [
-    PremiumColor('Royal Blue (Default)', Color(0xFF5B67F1)),
-    PremiumColor('Indigo Mist', Color(0xFF6C63FF)),
-    PremiumColor('Electric Violet', Color(0xFF7C4DFF)),
-    PremiumColor('Deep Purple', Color(0xFF8E44AD)),
-    PremiumColor('Cyber Lavender', Color(0xFF9B59B6)),
-    PremiumColor('Sky Blue', Color(0xFF4A90E2)),
-    PremiumColor('Ocean Blue', Color(0xFF007AFF)),
-    PremiumColor('Azure Glow', Color(0xFF3A86FF)),
-    PremiumColor('Neon Blue', Color(0xFF2563EB)),
-    PremiumColor('Sapphire', Color(0xFF0F52BA)),
-    PremiumColor('Aqua Cyan', Color(0xFF00BCD4)),
-    PremiumColor('Turquoise', Color(0xFF1ABC9C)),
-    PremiumColor('Mint Green', Color(0xFF2ECC71)),
-    PremiumColor('Emerald', Color(0xFF27AE60)),
-    PremiumColor('Lime Green', Color(0xFF84CC16)),
-    PremiumColor('Soft Olive', Color(0xFF6B8E23)),
-    PremiumColor('Golden Yellow', Color(0xFFF4B400)),
-    PremiumColor('Amber', Color(0xFFFFB300)),
-    PremiumColor('Orange Glow', Color(0xFFFF9800)),
-    PremiumColor('Sunset Orange', Color(0xFFFF7043)),
-    PremiumColor('Coral Red', Color(0xFFFF6B6B)),
-    PremiumColor('Crimson', Color(0xFFDC3545)),
-    PremiumColor('Rose Pink', Color(0xFFFF4D8D)),
-    PremiumColor('Hot Pink', Color(0xFFE91E63)),
-    PremiumColor('Magenta', Color(0xFFD633FF)),
-    PremiumColor('Soft Peach', Color(0xFFFF9E80)),
-    PremiumColor('Blush Pink', Color(0xFFF78FB3)),
-    PremiumColor('Lavender', Color(0xFFB388FF)),
-    PremiumColor('Periwinkle', Color(0xFF8FA8FF)),
-    PremiumColor('Ice Blue', Color(0xFFA7C7FF)),
-    PremiumColor('Arctic Cyan', Color(0xFF7FDBFF)),
-    PremiumColor('Teal Blue', Color(0xFF008080)),
-    PremiumColor('Sea Green', Color(0xFF2E8B57)),
-    PremiumColor('Forest Green', Color(0xFF228B22)),
-    PremiumColor('Neon Mint', Color(0xFF00E5A8)),
-    PremiumColor('Lemon Lime', Color(0xFFCDDC39)),
-    PremiumColor('Soft Gold', Color(0xFFD4AF37)),
-    PremiumColor('Bronze', Color(0xFFCD7F32)),
-    PremiumColor('Burnt Orange', Color(0xFFD97706)),
-    PremiumColor('Ruby Red', Color(0xFFC2185B)),
-    PremiumColor('Wine Purple', Color(0xFF722F37)),
-    PremiumColor('Plum', Color(0xFF8E4585)),
-    PremiumColor('Midnight Blue', Color(0xFF1E3A8A)),
-    PremiumColor('Slate Blue', Color(0xFF5A67D8)),
-    PremiumColor('Graphite', Color(0xFF4B5563)),
-    PremiumColor('Charcoal', Color(0xFF36454F)),
-    PremiumColor('Steel Blue', Color(0xFF4682B4)),
-    PremiumColor('Frost Violet', Color(0xFFA78BFA)),
-    PremiumColor('Soft Cyan', Color(0xFF67E8F9)),
-    PremiumColor('Neon Purple', Color(0xFF9333EA)),
-  ];
 
   @override
   void dispose() {
@@ -90,9 +32,10 @@ class _AccentColorScreenState extends ConsumerState<AccentColorScreen> {
     final subtleColor = isDark ? Colors.white38 : const Color(0xFF9CA3AF);
     final borderCol = isDark ? Colors.white12 : const Color(0xFFE2E2E7);
 
-    final filteredColors = _allColors.where((item) {
+    final filteredColors = AppTheme.premiumColors.where((item) {
       return item.name.toLowerCase().contains(_query.toLowerCase());
     }).toList();
+
 
     return Scaffold(
       backgroundColor: scaffoldBg,
