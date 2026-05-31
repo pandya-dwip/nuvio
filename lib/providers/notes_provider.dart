@@ -154,6 +154,11 @@ class NotesNotifier extends StateNotifier<List<Note>> {
     }).toList();
     _saveNotes();
   }
+
+  void clearAllNotes() {
+    state = [];
+    _saveNotes();
+  }
 }
 
 final notesProvider = StateNotifierProvider<NotesNotifier, List<Note>>((ref) {

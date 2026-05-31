@@ -37,22 +37,22 @@ class NoteCard extends ConsumerWidget {
     final textColor = isCardDark ? Colors.white : const Color(0xFF2C2A29);
     final textMuted = isCardDark ? Colors.white70 : const Color(0xFF6B665E);
     final textSecondary = isCardDark ? Colors.white60 : const Color(0xFF8F887F);
-    final borderColor = isDarkTheme ? Colors.white12 : const Color(0xFFE5DEC9).withAlpha(128);
+    final borderColor = isDarkTheme ? Colors.white12 : const Color(0xFFC1C6D7).withOpacity(0.25);
 
 
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: borderColor,
           width: 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(8),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(isDarkTheme ? 0.25 : 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -60,7 +60,7 @@ class NoteCard extends ConsumerWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(28),
           onLongPress: () {
             // Show options dialog (Pin/Unpin, Delete)
             _showNoteOptions(context, ref);
@@ -74,8 +74,8 @@ class NoteCard extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: Theme.of(context).primaryColor,
                     borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      bottomLeft: Radius.circular(20),
+                      topLeft: Radius.circular(28),
+                      bottomLeft: Radius.circular(28),
                     ),
                   ),
                 ),
@@ -122,7 +122,7 @@ class NoteCard extends ConsumerWidget {
                             height: 1.4,
                             color: textMuted, // Dynamic body text color
                           ),
-                          maxLines: 4,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 12),

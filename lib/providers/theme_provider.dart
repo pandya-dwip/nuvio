@@ -33,15 +33,15 @@ final themeProvider = StateNotifierProvider<ThemeNotifier, ThemeMode>((ref) {
 });
 
 class CustomThemeColorNotifier extends StateNotifier<Color> {
-  // Default is Colors.black (satisfying Black & White default theme)
-  CustomThemeColorNotifier() : super(Colors.black) {
+  // Default is 0xFF5B67F1 (Royal Blue)
+  CustomThemeColorNotifier() : super(const Color(0xFF5B67F1)) {
     _loadColor();
   }
 
   Future<void> _loadColor() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final colorVal = prefs.getInt('nuvio_theme_color');
+      final colorVal = prefs.getInt('accent_color');
       if (colorVal != null) {
         state = Color(colorVal);
       }
@@ -52,7 +52,7 @@ class CustomThemeColorNotifier extends StateNotifier<Color> {
     state = color;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('nuvio_theme_color', color.value);
+      await prefs.setInt('accent_color', color.value);
     } catch (_) {}
   }
 }

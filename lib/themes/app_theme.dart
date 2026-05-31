@@ -16,7 +16,7 @@ class AppTheme {
   static const Color darkTextMuted = Color(0xFF6B7280);
 
   // Light Colors
-  static const Color lightBg = Color(0xFFFFFFFF); // Pure white background
+  static const Color lightBg = Color(0xFFF3F3F8); // premium cool grey background
   static const Color lightSurface = Color(0xFFFFFFFF);
   static const Color lightCard = Color(0xFFFFFFFF);
   static const Color lightBorder = Color(0xFFE5E7EB);

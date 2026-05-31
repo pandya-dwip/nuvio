@@ -28,7 +28,8 @@ class _PinnedNotesScreenState extends ConsumerState<PinnedNotesScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).primaryColor;
     final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final subtleColor = isDark ? Colors.white38 : const Color(0xFF9CA3AF);
+    final subtleColor = isDark ? Colors.white38 : const Color(0xFF8F887F);
+    final scaffoldBg = isDark ? const Color(0xFF0D0E10) : const Color(0xFFF3F3F8);
 
     final allNotes = ref.watch(notesProvider);
     List<Note> pinned = allNotes.where((n) => n.isPinned).toList()
@@ -44,43 +45,54 @@ class _PinnedNotesScreenState extends ConsumerState<PinnedNotesScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: scaffoldBg,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Header ────────────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 12, 20, 4),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.arrow_back_ios_new_rounded,
-                        color: textColor, size: 20),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white10 : const Color(0xFFE8E8ED),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 18,
+                        color: textColor,
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       'Pinned Notes',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 24,
+                        fontSize: 26,
                         fontWeight: FontWeight.w800,
                         color: textColor,
                       ),
                     ),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
+                      color: primaryColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       '${pinned.length}',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
                         color: primaryColor,
                       ),
                     ),
@@ -91,28 +103,23 @@ class _PinnedNotesScreenState extends ConsumerState<PinnedNotesScreen> {
 
             // ── Search Bar ────────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
               child: Container(
                 height: 48,
                 decoration: BoxDecoration(
-                  color:
-                      isDark ? const Color(0xFF1C1E22) : const Color(0xFFF3F4F6),
+                  color: isDark ? const Color(0xFF1C1E22) : const Color(0xFFE8E8ED),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: TextField(
                   controller: _searchController,
-                  style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14, color: textColor),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 14, color: textColor),
                   decoration: InputDecoration(
                     hintText: 'Search pinned notes...',
-                    hintStyle: GoogleFonts.plusJakartaSans(
-                        fontSize: 14, color: subtleColor),
-                    prefixIcon: Icon(Icons.search_rounded,
-                        color: primaryColor, size: 20),
+                    hintStyle: GoogleFonts.plusJakartaSans(fontSize: 14, color: subtleColor),
+                    prefixIcon: Icon(Icons.search_rounded, color: primaryColor, size: 20),
                     suffixIcon: _search.isNotEmpty
                         ? IconButton(
-                            icon: Icon(Icons.clear_rounded,
-                                color: subtleColor, size: 18),
+                            icon: Icon(Icons.clear_rounded, color: subtleColor, size: 18),
                             onPressed: () => setState(() {
                               _search = '';
                               _searchController.clear();
@@ -130,22 +137,18 @@ class _PinnedNotesScreenState extends ConsumerState<PinnedNotesScreen> {
               ),
             ),
 
-            Divider(
-                color: isDark ? Colors.white12 : const Color(0xFFF3F4F6),
-                height: 1),
-
             // ── Content ───────────────────────────────────────────────────
             Expanded(
               child: pinned.isEmpty
                   ? _buildEmpty(isDark, subtleColor)
                   : GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                      physics: const BouncingScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
                         crossAxisSpacing: 14,
                         mainAxisSpacing: 14,
-                        childAspectRatio: 0.78,
+                        childAspectRatio: 0.82,
                       ),
                       itemCount: pinned.length,
                       itemBuilder: (_, i) => NoteCard(
@@ -153,8 +156,8 @@ class _PinnedNotesScreenState extends ConsumerState<PinnedNotesScreen> {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) =>
-                                  NoteDetailScreen(noteId: pinned[i].id)),
+                            builder: (_) => NoteDetailScreen(noteId: pinned[i].id),
+                          ),
                         ),
                       ),
                     ),

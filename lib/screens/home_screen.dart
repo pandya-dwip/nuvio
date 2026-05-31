@@ -13,6 +13,8 @@ import '../widgets/note_card.dart';
 import '../screens/note_detail_screen.dart';
 import '../screens/pinned_notes_screen.dart';
 import '../screens/favorites_screen.dart';
+import '../screens/accent_color_screen.dart';
+import '../screens/splash_screen.dart';
 import '../themes/app_theme.dart';
 
 // ── Tab indices ──────────────────────────────────────────────────────────────
@@ -34,12 +36,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // Search
   String _search = '';
   final TextEditingController _searchCtrl = TextEditingController();
+  String _settingsSearch = '';
+  final TextEditingController _settingsSearchCtrl = TextEditingController();
 
   // Folders
   String? _selectedFolderId;
 
   // Calendar selected day
   DateTime _selectedDay = DateTime.now();
+  DateTime _focusedMonth = DateTime.now();
 
   @override
   void initState() {
@@ -50,6 +55,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _settingsSearchCtrl.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -61,6 +67,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _currentTab = index;
       _search = '';
       _searchCtrl.clear();
+      _settingsSearch = '';
+      _settingsSearchCtrl.clear();
     });
     _pageController.animateToPage(
       index,
@@ -235,6 +243,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       _currentTab = index;
                       _search = '';
                       _searchCtrl.clear();
+                      _settingsSearch = '';
+                      _settingsSearchCtrl.clear();
                     });
                   }
                 },
@@ -265,33 +275,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Color primaryColor, {
     String searchHint = 'Search...',
     Widget? trailing,
+    bool showBackButton = false,
     VoidCallback? onBack,
   }) {
     final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final subtleColor = isDark ? Colors.white38 : const Color(0xFF9CA3AF);
+    final subtleColor = isDark ? Colors.white38 : const Color(0xFF8F887F);
+
+    // Determine the header icon based on the title
+    IconData headerIcon = Icons.description_rounded;
+    if (title.toLowerCase() == 'folders') {
+      headerIcon = Icons.folder_rounded;
+    } else if (title.toLowerCase() == 'settings') {
+      headerIcon = Icons.settings_rounded;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Premium Header with Icon (matching Settings header style)
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 12, 20, 4),
+          padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 16.0),
           child: Row(
             children: [
-              IconButton(
-                onPressed: onBack ?? () => _switchTab(2),
-                icon: Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: textColor,
-                  size: 20,
+              if (showBackButton) ...[
+                GestureDetector(
+                  onTap: onBack,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : const Color(0xFFE8E8ED),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 18,
+                      color: textColor,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 14),
+              ] else ...[
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    headerIcon,
+                    color: primaryColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+              ],
               Expanded(
                 child: Text(
                   title,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    color: textColor,
+                    color: isDark ? Colors.white : const Color(0xFF333E5A),
                   ),
                 ),
               ),
@@ -299,29 +345,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ],
           ),
         ),
+
+        // Full-width Search Bar matching Settings / Pinned search bar
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
           child: Container(
             height: 48,
             decoration: BoxDecoration(
-              color:
-                  isDark ? const Color(0xFF1C1E22) : const Color(0xFFF3F4F6),
+              color: isDark ? const Color(0xFF1C1E22) : const Color(0xFFE8E8ED),
               borderRadius: BorderRadius.circular(24),
             ),
             child: TextField(
               controller: _searchCtrl,
-              style:
-                  GoogleFonts.plusJakartaSans(fontSize: 14, color: textColor),
+              style: GoogleFonts.plusJakartaSans(fontSize: 14, color: textColor),
               decoration: InputDecoration(
                 hintText: searchHint,
-                hintStyle: GoogleFonts.plusJakartaSans(
-                    fontSize: 14, color: subtleColor),
-                prefixIcon:
-                    Icon(Icons.search_rounded, color: primaryColor, size: 20),
+                hintStyle: GoogleFonts.plusJakartaSans(fontSize: 14, color: subtleColor),
+                prefixIcon: Icon(Icons.search_rounded, color: primaryColor, size: 20),
                 suffixIcon: _search.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.clear_rounded,
-                            color: subtleColor, size: 18),
+                        icon: Icon(Icons.clear_rounded, color: subtleColor, size: 18),
                         onPressed: () => setState(() {
                           _search = '';
                           _searchCtrl.clear();
@@ -338,9 +381,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
         ),
-        Divider(
-            color: isDark ? Colors.white12 : const Color(0xFFF3F4F6),
-            height: 1),
       ],
     );
   }
@@ -360,12 +400,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: brandColor,
-                    letterSpacing: -0.5,
-                  ),
+                  style: title == 'Nuvio'
+                      ? GoogleFonts.greatVibes(
+                          fontSize: 38,
+                          fontWeight: FontWeight.w400,
+                          color: brandColor,
+                        ).copyWith(
+                          fontFamilyFallback: ['Segoe Script', 'Lucida Handwriting', 'cursive'],
+                        )
+                      : GoogleFonts.plusJakartaSans(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: brandColor,
+                          letterSpacing: -0.5,
+                        ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -450,12 +498,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Color brandColor,
     bool isDark,
   ) {
-    // Generate dates of current week (Monday to Sunday)
-    final now = DateTime.now();
-    final currentWeekday = now.weekday;
-    final monday = now.subtract(Duration(days: currentWeekday - 1));
-    final weekDates = List<DateTime>.generate(7, (i) => monday.add(Duration(days: i)));
-
     // Filter notes edited on the selected date
     final calendarNotes = sortedNotes.where((note) {
       return note.updatedAt.year == _selectedDay.year &&
@@ -463,82 +505,158 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           note.updatedAt.day == _selectedDay.day;
     }).toList();
 
+    final year = _focusedMonth.year;
+    final month = _focusedMonth.month;
+    final firstDay = DateTime(year, month, 1);
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    
+    // We start from Monday
+    final leadingSpaces = firstDay.weekday - 1;
+    final totalCells = leadingSpaces + daysInMonth;
+
+    // Get a set of days that have notes in the focused month
+    final monthNotes = sortedNotes.where((note) => note.updatedAt.year == year && note.updatedAt.month == month).toList();
+    final daysWithNotes = monthNotes.map((n) => n.updatedAt.day).toSet();
+
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    final monthYearStr = '${monthNames[month - 1]} $year';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildHeader(context, 'Calendar', 'View notes chronologically', brandColor),
         
-        // Horizontal Day Selector
-        Container(
-          height: 90,
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: 7,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+        // Month Navigation Header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                monthYearStr,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : const Color(0xFF1A1C1F),
+                ),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _focusedMonth = DateTime(year, month - 1, 1);
+                      });
+                    },
+                    icon: const Icon(Icons.chevron_left_rounded),
+                    color: isDark ? Colors.white70 : const Color(0xFF2C2A29),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _focusedMonth = DateTime(year, month + 1, 1);
+                      });
+                    },
+                    icon: const Icon(Icons.chevron_right_rounded),
+                    color: isDark ? Colors.white70 : const Color(0xFF2C2A29),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Weekdays labels row
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: const [
+              SizedBox(width: 40, child: Text('M', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8F887F)), textAlign: TextAlign.center)),
+              SizedBox(width: 40, child: Text('T', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8F887F)), textAlign: TextAlign.center)),
+              SizedBox(width: 40, child: Text('W', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8F887F)), textAlign: TextAlign.center)),
+              SizedBox(width: 40, child: Text('T', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8F887F)), textAlign: TextAlign.center)),
+              SizedBox(width: 40, child: Text('F', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8F887F)), textAlign: TextAlign.center)),
+              SizedBox(width: 40, child: Text('S', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8F887F)), textAlign: TextAlign.center)),
+              SizedBox(width: 40, child: Text('S', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8F887F)), textAlign: TextAlign.center)),
+            ],
+          ),
+        ),
+
+        // Monthly Days Grid
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: totalCells,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+              childAspectRatio: 1.0,
+            ),
             itemBuilder: (context, index) {
-              final date = weekDates[index];
+              if (index < leadingSpaces) {
+                return const SizedBox();
+              }
+
+              final dayNumber = index - leadingSpaces + 1;
+              final date = DateTime(year, month, dayNumber);
               final isSelected = date.year == _selectedDay.year &&
                   date.month == _selectedDay.month &&
                   date.day == _selectedDay.day;
+              
+              final hasNotes = daysWithNotes.contains(dayNumber);
 
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _getDayName(date.weekday),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF8F887F),
-                      ),
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedDay = date;
+                  });
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected ? brandColor : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected 
+                          ? Colors.transparent 
+                          : (date.year == DateTime.now().year && date.month == DateTime.now().month && date.day == DateTime.now().day 
+                              ? brandColor.withOpacity(0.5) 
+                              : Colors.transparent),
+                      width: 1.5,
                     ),
-                    const SizedBox(height: 6),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedDay = date;
-                        });
-                      },
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$dayNumber',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: isSelected || hasNotes ? FontWeight.bold : FontWeight.normal,
                           color: isSelected
-                              ? brandColor
-                              : (isDark ? const Color(0xFF1E2124) : Colors.white),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected ? Colors.transparent : (isDark ? Colors.white12 : const Color(0xFFE2E2E7)),
-                            width: 1.0,
-                          ),
-                          boxShadow: [
-                            if (isSelected)
-                              BoxShadow(
-                                color: brandColor.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${date.day}',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: isSelected
-                                  ? ((brandColor == Colors.white || brandColor.value == 0xFFFFFFFF) ? Colors.black : Colors.white)
-                                  : (isDark ? Colors.white70 : const Color(0xFF1a1c1f)),
-                            ),
-                          ),
+                              ? ((brandColor == Colors.white || brandColor.value == 0xFFFFFFFF) ? Colors.black : Colors.white)
+                              : (isDark ? Colors.white70 : const Color(0xFF1A1C1F)),
                         ),
                       ),
-                    ),
-                  ],
+                      if (hasNotes)
+                        Container(
+                          margin: const EdgeInsets.only(top: 2),
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: isSelected 
+                                ? ((brandColor == Colors.white || brandColor.value == 0xFFFFFFFF) ? Colors.black : Colors.white) 
+                                : brandColor,
+                            shape: BoxShape.circle,
+                          ),
+                        )
+                      else
+                        const SizedBox(height: 6),
+                    ],
+                  ),
                 ),
               );
             },
@@ -686,54 +804,117 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               itemBuilder: (context, index) {
                 if (index == 0) {
                   final isAllSelected = _selectedFolderId == null;
+                  final hasWhiteText = brandColor == Colors.white || brandColor.value == 0xFFFFFFFF;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
-                    child: ChoiceChip(
-                      showCheckmark: false,
-                      label: Text(
-                        'All Notes',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontWeight: FontWeight.bold,
-                          color: isAllSelected ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF2C2A29)),
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedFolderId = null;
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                          decoration: BoxDecoration(
+                            color: isAllSelected
+                                ? brandColor
+                                : brandColor.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isAllSelected
+                                  ? brandColor
+                                  : brandColor.withOpacity(0.2),
+                              width: 1,
+                            ),
+                            boxShadow: isAllSelected
+                                ? [
+                                    BoxShadow(
+                                      color: brandColor.withOpacity(0.25),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ]
+                                : [],
+                          ),
+                          child: Text(
+                            'All Notes',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: isAllSelected
+                                  ? (hasWhiteText ? Colors.black : Colors.white)
+                                  : brandColor,
+                            ),
+                          ),
                         ),
                       ),
-                      selected: isAllSelected,
-                      selectedColor: brandColor,
-                      backgroundColor: isDark ? const Color(0xFF1E2124) : const Color(0xFFFAF2E6),
-                      onSelected: (_) {
-                        setState(() {
-                          _selectedFolderId = null;
-                        });
-                      },
                     ),
                   );
                 }
                 final folder = folders[index - 1];
                 final isSelected = folder.id == _selectedFolderId;
+                final folderColor = Color(folder.colorValue);
+                final hasWhiteText = brandColor == Colors.white || brandColor.value == 0xFFFFFFFF;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8.0),
-                  child: ChoiceChip(
-                    showCheckmark: false,
-                    avatar: Icon(
-                      Icons.folder_open,
-                      size: 16,
-                      color: isSelected ? Colors.white : Color(folder.colorValue),
-                    ),
-                    label: Text(
-                      folder.name,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.bold,
-                        color: isSelected ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF2C2A29)),
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedFolderId = folder.id;
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? brandColor
+                              : folderColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected
+                                ? brandColor
+                                : folderColor.withOpacity(0.2),
+                            width: 1,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: brandColor.withOpacity(0.25),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ]
+                              : [],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.folder_open_rounded,
+                              size: 16,
+                              color: isSelected
+                                  ? (hasWhiteText ? Colors.black : Colors.white)
+                                  : folderColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              folder.name,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected
+                                    ? (hasWhiteText ? Colors.black : Colors.white)
+                                    : folderColor,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    selected: isSelected,
-                    selectedColor: brandColor,
-                    backgroundColor: isDark ? const Color(0xFF1E2124) : const Color(0xFFFAF2E6),
-                    onSelected: (_) {
-                      setState(() {
-                        _selectedFolderId = folder.id;
-                      });
-                    },
                   ),
                 );
               },
@@ -775,6 +956,149 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  String _formatPinnedDate(DateTime date) {
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    final monthStr = months[date.month - 1];
+    final dayStr = date.day.toString().padLeft(2, '0');
+    return '$monthStr $dayStr, ${date.year}';
+  }
+
+  Widget _buildPinnedCard(BuildContext context, Note note, bool isDark, Color brandColor, bool showThickLeftBorder, List<Folder> folders) {
+    final folder = note.folderId != null
+        ? folders.firstWhere((f) => f.id == note.folderId, orElse: () => Folder(id: '', name: '', createdAt: DateTime.now(), colorValue: 0))
+        : null;
+
+    final cardBgColor = isDark ? const Color(0xFF1E2124) : Colors.white;
+    final borderCol = isDark ? Colors.white10 : const Color(0xFFC1C6D7).withOpacity(0.20);
+    
+    final textColor = isDark ? Colors.white : const Color(0xFF1A1C1F);
+    final snippetColor = isDark ? Colors.white70 : const Color(0xFF414755);
+    final dateColor = isDark ? Colors.white38 : const Color(0xFF717786);
+
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        color: cardBgColor,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: borderCol, width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NoteDetailScreen(noteId: note.id),
+                ),
+              );
+            },
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (showThickLeftBorder)
+                  Container(
+                    width: 6,
+                    color: brandColor,
+                  ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    note.title.isNotEmpty ? note.title : 'Untitled',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: textColor,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.push_pin,
+                                  color: brandColor,
+                                  size: 16,
+                                ),
+                              ],
+                            ),
+                            if (note.content.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                note.content,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12,
+                                  color: snippetColor,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _formatPinnedDate(note.updatedAt),
+                              style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: dateColor,
+                                ),
+                            ),
+                            if (folder != null && folder.name.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Color(folder.colorValue).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  folder.name.toUpperCase(),
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(folder.colorValue),
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   //  TAB 2 – HOME (Premium Mockup UI exact replica)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -810,10 +1134,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
           // --- Pinned Section ---
           if (pinnedNotes.isNotEmpty) ...[
-            _buildSectionTitle('Pinned', () => _switchTab(1), brandColor),
+            _buildSectionTitle('Pinned', () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PinnedNotesScreen()),
+              );
+            }, brandColor),
             const SizedBox(height: 8),
             SizedBox(
-              height: 190,
+              height: 152,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -823,20 +1152,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   final note = pinnedNotes[index];
                   return Padding(
                     padding: const EdgeInsets.only(right: 14.0),
-                    child: SizedBox(
-                      width: 280,
-                      child: NoteCard(
-                        note: note,
-                        showThickLeftBorder: index == 0,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => NoteDetailScreen(noteId: note.id),
-                            ),
-                          );
-                        },
-                      ),
+                    child: _buildPinnedCard(
+                      context,
+                      note,
+                      isDark,
+                      brandColor,
+                      index == 0,
+                      folders,
                     ),
                   );
                 },
@@ -847,7 +1169,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
           // --- Favorites Section ---
           if (favoriteNotes.isNotEmpty) ...[
-            _buildSectionTitle('Favorites', () => _switchTab(1), brandColor),
+            _buildSectionTitle('Favorites', () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+              );
+            }, brandColor),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -1084,7 +1411,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           searchHint: _selectedFolderId == null
               ? 'Search folders...'
               : 'Search notes...',
+          showBackButton: _selectedFolderId != null,
           onBack: onBack,
+          trailing: _selectedFolderId == null
+              ? null
+              : Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    '${folderNotes.length}',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                ),
         ),
 
         Expanded(
@@ -1126,21 +1471,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ],
                       ),
                     ),
-                    ...folderNotes.map((n) => Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 5),
-                          child: _buildNoteListRow(n, isDark, primaryColor),
-                        )),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        childAspectRatio: 0.82,
+                      ),
+                      itemCount: folderNotes.length,
+                      itemBuilder: (context, index) {
+                        final n = folderNotes[index];
+                        return NoteCard(
+                          note: n,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => NoteDetailScreen(noteId: n.id),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                   if (_selectedFolderId != null &&
                       displayFolders.isEmpty &&
                       folderNotes.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.all(48),
+                      padding: const EdgeInsets.only(top: 100.0),
                       child: Center(
-                        child: Text('This folder is empty',
-                            style: GoogleFonts.plusJakartaSans(
-                                color: subtleColor)),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.folder_open_outlined,
+                              size: 56,
+                              color: isDark ? Colors.white24 : const Color(0xFFD1D5DB),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Folder is empty',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: subtleColor,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Create a note inside this folder to get started',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                color: subtleColor,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                 ],
@@ -1318,147 +1706,295 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  TAB 4 – SETTINGS (Theme Config & System Info inline)
-  // ═══════════════════════════════════════════════════════════════════════════
+  // Unused bottom sheets removed to clean up settings tab code
+
   Widget _buildSettingsTab(
     Color brandColor,
     bool isDark,
   ) {
-    final colors = [
-      0xFF0058BC, // Blue
-      0xFF000000, // Black
-      0xFFEF5350, // Red
-      0xFF059669, // Green
-      0xFF7C3AED, // Purple
-      0xFFFFA726, // Orange
-    ];
+    final cardBg = isDark ? const Color(0xFF1E2124) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final subtleColor = isDark ? Colors.white38 : const Color(0xFF8F887F);
+    final borderCol = isDark ? Colors.white12 : const Color(0xFFE2E2E7);
 
-    final customColor = ref.watch(customThemeColorProvider);
+    // Settings Header with brand-styled icon
+    Widget settingsHeader = Padding(
+      padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 16.0),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: brandColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.settings_rounded,
+              color: brandColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              'Settings',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : const Color(0xFF333E5A),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final showDarkMode = _settingsSearch.isEmpty ||
+        'dark mode'.contains(_settingsSearch.toLowerCase()) ||
+        'switch'.contains(_settingsSearch.toLowerCase()) ||
+        'light'.contains(_settingsSearch.toLowerCase());
+
+    final showAccentColor = _settingsSearch.isEmpty ||
+        'accent color'.contains(_settingsSearch.toLowerCase()) ||
+        'personalize'.contains(_settingsSearch.toLowerCase()) ||
+        'theme'.contains(_settingsSearch.toLowerCase());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildHeader(context, 'Settings', 'Personalize your workspace theme', brandColor),
+        settingsHeader,
+        
+        // Full Width Search Bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1C1E22) : const Color(0xFFE8E8ED),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: TextField(
+              controller: _settingsSearchCtrl,
+              style: GoogleFonts.plusJakartaSans(fontSize: 14, color: textColor),
+              decoration: InputDecoration(
+                hintText: 'Search settings...',
+                hintStyle: GoogleFonts.plusJakartaSans(fontSize: 14, color: subtleColor),
+                prefixIcon: Icon(Icons.search_rounded, color: brandColor, size: 20),
+                suffixIcon: _settingsSearch.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.clear_rounded, color: subtleColor, size: 18),
+                        onPressed: () => setState(() {
+                          _settingsSearch = '';
+                          _settingsSearchCtrl.clear();
+                        }),
+                      )
+                    : null,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                filled: false,
+              ),
+              onChanged: (v) => setState(() => _settingsSearch = v),
+            ),
+          ),
+        ),
+
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 100.0),
+            padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 100.0),
             physics: const BouncingScrollPhysics(),
             children: [
-              Text(
-                'APPEARANCE',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF8F887F),
-                  letterSpacing: 1.0,
-                ),
-              ),
-              const SizedBox(height: 10),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  'Dark Theme Mode',
+              if (showDarkMode || showAccentColor) ...[
+                Text(
+                  'APPEARANCE',
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 16,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : const Color(0xFF1a1c1f),
+                    color: subtleColor,
+                    letterSpacing: 1.0,
                   ),
                 ),
-                subtitle: Text(
-                  'Enable comfortable viewing at night',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13,
-                    color: const Color(0xFF8F887F),
+                const SizedBox(height: 14),
+              ],
+              
+              // Dark Mode Card
+              if (showDarkMode) ...[
+                Container(
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: borderCol, width: 1.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: brandColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.dark_mode_outlined,
+                          color: brandColor,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Dark Mode',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                            Text(
+                              'Switch between light and dark',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                color: subtleColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: isDark,
+                        activeColor: brandColor,
+                        onChanged: (_) {
+                          ref.read(themeProvider.notifier).toggleTheme();
+                        },
+                      ),
+                    ],
                   ),
                 ),
-                value: isDark,
-                activeColor: brandColor,
-                onChanged: (_) {
-                  ref.read(themeProvider.notifier).toggleTheme();
-                },
-              ),
-              const Divider(height: 32, color: Colors.white10),
+                const SizedBox(height: 14),
+              ],
 
-              Text(
-                'BRAND COLOR THEME',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF8F887F),
-                  letterSpacing: 1.0,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: colors.map((cVal) {
-                  final isSelected = cVal == customColor.value;
-                  return InkWell(
+              // Accent Color Card
+              if (showAccentColor) ...[
+                Container(
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: borderCol, width: 1.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: InkWell(
                     onTap: () {
-                      ref.read(customThemeColorProvider.notifier).updateColor(Color(cVal));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AccentColorScreen()),
+                      );
                     },
                     borderRadius: BorderRadius.circular(24),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Color(cVal),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected
-                              ? (isDark ? Colors.white : const Color(0xFF1A1A1A))
-                              : Colors.white24,
-                          width: isSelected ? 3.0 : 1.0,
-                        ),
-                        boxShadow: [
-                          if (isSelected)
-                            BoxShadow(
-                              color: Color(cVal).withOpacity(0.4),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: brandColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(12),
                             ),
+                            child: Icon(
+                              Icons.palette_outlined,
+                              color: brandColor,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Accent Color',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                ),
+                                Text(
+                                  'Personalize app theme',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    color: subtleColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: brandColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1.5),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.chevron_right_rounded, color: subtleColor),
                         ],
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-              const Divider(height: 32, color: Colors.white10),
-
-              Text(
-                'ABOUT',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF8F887F),
-                  letterSpacing: 1.0,
-                ),
-              ),
-              const SizedBox(height: 10),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: brandColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.info_outline, color: brandColor),
-                ),
-                title: Text(
-                  'Nuvio Notes v1.0.2',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : const Color(0xFF1a1c1f),
                   ),
                 ),
-                subtitle: Text(
-                  'Offline-first Recycled Canvas design.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF8F887F)),
+              ],
+              
+              if (!showDarkMode && !showAccentColor)
+                Padding(
+                  padding: const EdgeInsets.only(top: 80),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.search_off_rounded,
+                        size: 48,
+                        color: subtleColor,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No matching settings found',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: subtleColor,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -1511,97 +2047,126 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildNoNotesFoundState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.search_off, size: 48, color: Color(0xFF8F887F)),
-          const SizedBox(height: 12),
-          Text(
-            'No matching notes found.',
-            style: GoogleFonts.plusJakartaSans(
-              color: const Color(0xFF8F887F),
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   // ═══════════════════════════════════════════════════════════════════════════
   //  BOTTOM NAVIGATION BAR (Docked glass design)
   // ═══════════════════════════════════════════════════════════════════════════
-  Widget _buildBottomNavigationBar(BuildContext context, Color primaryColor) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final navBgColor = isDark ? const Color(0xFF15171A).withOpacity(0.9) : const Color(0xFFFFFFFF).withOpacity(0.9);
-    final borderColor = isDark ? Colors.white10 : const Color(0xFFE2E2E7);
-    
-    return Container(
-      height: 84,
-      decoration: BoxDecoration(
-        color: navBgColor,
-        border: Border(
-          top: BorderSide(color: borderColor, width: 0.8),
-        ),
-      ),
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.calendar_today_outlined, 'Calendar', primaryColor),
-              _buildNavItem(1, Icons.description_outlined, 'Notes', primaryColor),
-              _buildNavItem(2, Icons.home, 'Home', primaryColor, fillIcon: true),
-              _buildNavItem(3, Icons.folder_outlined, 'Folders', primaryColor),
-              _buildNavItem(4, Icons.settings_outlined, 'Settings', primaryColor),
-            ],
-          ),
-        ),
-      ),
-    );
+  IconData _getTabIcon(int index) {
+    switch (index) {
+      case 0:
+        return Icons.calendar_today_outlined;
+      case 1:
+        return Icons.description_outlined;
+      case 2:
+        return Icons.home_rounded;
+      case 3:
+        return Icons.folder_outlined;
+      case 4:
+        return Icons.settings_rounded;
+      default:
+        return Icons.home_rounded;
+    }
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label, Color primaryColor, {bool fillIcon = false}) {
-    final isSelected = _currentTab == index;
+  Widget _buildBottomNavigationBar(BuildContext context, Color primaryColor) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    final Color itemColor = isSelected 
-        ? primaryColor 
-        : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B665E));
-        
-    return Expanded(
-      child: InkWell(
-        onTap: () => _switchTab(index),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isSelected && fillIcon ? Icons.home_rounded : icon,
-                color: itemColor,
-                size: 24,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                  color: itemColor,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+    final screenWidth = MediaQuery.of(context).size.width;
+    final itemWidth = screenWidth / 5;
+    final targetX = itemWidth * _currentTab + itemWidth / 2;
+
+    final barColor = isDark ? const Color(0xFF1C1E22) : Colors.white;
+    final shadowColor = isDark ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.06);
+
+    return Container(
+      height: 92,
+      color: Colors.transparent,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // 1. Sliding Background and Floating Action Circle
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: targetX, end: targetX),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            builder: (context, animX, child) {
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Painted background with the dynamic curve
+                  CustomPaint(
+                    size: Size(screenWidth, 92),
+                    painter: BottomBarPainter(
+                      activeX: animX,
+                      color: barColor,
+                      shadowColor: shadowColor,
+                      isDark: isDark,
+                    ),
+                  ),
+                  // Sliding Floating Circle
+                  Positioned(
+                    left: animX - 28, // Center of circle (diameter 56)
+                    top: 8, // Rises slightly above the bar (since flatTopY is 32)
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: primaryColor.withOpacity(0.4),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        _getTabIcon(_currentTab),
+                        color: (primaryColor == Colors.white || primaryColor.value == 0xFFFFFFFF) ? Colors.black : Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
-        ),
+          // 2. Interactive Row of Icons
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 12,
+            child: SizedBox(
+              height: 56,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(5, (index) {
+                  final isSelected = _currentTab == index;
+                  final Color iconColor = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B665E);
+                  
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _switchTab(index),
+                      child: Center(
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
+                          opacity: isSelected ? 0.0 : 1.0,
+                          child: Icon(
+                            _getTabIcon(index),
+                            color: iconColor,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2126,11 +2691,97 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 }
 
-// ─── Nav item data ────────────────────────────────────────────────────────────
-class _NavItem {
-  final int index;
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  const _NavItem(this.index, this.icon, this.activeIcon, this.label);
+class BottomBarPainter extends CustomPainter {
+  final double activeX;
+  final Color color;
+  final Color shadowColor;
+  final bool isDark;
+
+  BottomBarPainter({
+    required this.activeX,
+    required this.color,
+    required this.shadowColor,
+    required this.isDark,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E2E7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    final path = Path();
+    
+    // Normal height of the flat top (bar height is 92, flat top is at Y = 32, giving 60px height for the bar)
+    final double flatTopY = 32.0; 
+    // Peak height of the curve (curves up to Y = 6, giving 26px rise)
+    final double peakY = 6.0;
+    // Width of the curve base
+    final double curveWidth = 84.0;
+
+    path.moveTo(0, size.height);
+    path.lineTo(0, flatTopY + 16);
+    // Rounded corner top-left of the navigation bar
+    path.quadraticBezierTo(0, flatTopY, 16, flatTopY);
+    
+    // Line to the start of the curve
+    path.lineTo(activeX - curveWidth / 2, flatTopY);
+    
+    // Cubic bezier curve up and down
+    path.cubicTo(
+      activeX - curveWidth / 3, flatTopY,
+      activeX - curveWidth / 3, peakY,
+      activeX, peakY,
+    );
+    path.cubicTo(
+      activeX + curveWidth / 3, peakY,
+      activeX + curveWidth / 3, flatTopY,
+      activeX + curveWidth / 2, flatTopY,
+    );
+
+    // Line to the top-right corner
+    path.lineTo(size.width - 16, flatTopY);
+    // Rounded corner top-right
+    path.quadraticBezierTo(size.width, flatTopY, size.width, flatTopY + 16);
+    path.lineTo(size.width, size.height);
+    path.close();
+
+    // Draw shadow first
+    canvas.drawShadow(path, Colors.black.withOpacity(isDark ? 0.8 : 0.1), 8.0, true);
+    
+    // Draw the main background shape
+    canvas.drawPath(path, paint);
+
+    // Create a path just for the top border
+    final borderPath = Path();
+    borderPath.moveTo(0, flatTopY + 16);
+    borderPath.quadraticBezierTo(0, flatTopY, 16, flatTopY);
+    borderPath.lineTo(activeX - curveWidth / 2, flatTopY);
+    borderPath.cubicTo(
+      activeX - curveWidth / 3, flatTopY,
+      activeX - curveWidth / 3, peakY,
+      activeX, peakY,
+    );
+    borderPath.cubicTo(
+      activeX + curveWidth / 3, peakY,
+      activeX + curveWidth / 3, flatTopY,
+      activeX + curveWidth / 2, flatTopY,
+    );
+    borderPath.lineTo(size.width - 16, flatTopY);
+    borderPath.quadraticBezierTo(size.width, flatTopY, size.width, flatTopY + 16);
+
+    canvas.drawPath(borderPath, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant BottomBarPainter oldDelegate) {
+    return oldDelegate.activeX != activeX ||
+        oldDelegate.color != color ||
+        oldDelegate.isDark != isDark;
+  }
 }

@@ -85,6 +85,11 @@ class FoldersNotifier extends StateNotifier<List<Folder>> {
     }).toList();
     _saveFolders();
   }
+
+  void clearAllFolders() {
+    state = [];
+    _saveFolders();
+  }
 }
 
 final foldersProvider = StateNotifierProvider<FoldersNotifier, List<Folder>>((ref) {
