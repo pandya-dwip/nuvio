@@ -103,9 +103,14 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+
+    final bgColor = isDark ? const Color(0xFF0D0E10) : const Color(0xFFFFFFFF);
+    final subtitleColor = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B665E);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF), // Color behind curled sheets
+      backgroundColor: bgColor, // Color behind curled sheets
       body: AnimatedBuilder(
         animation: _entranceController,
         builder: (context, child) {
@@ -117,22 +122,22 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         child: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
-            color: Color(0xFFFFFFFF),
+          decoration: BoxDecoration(
+            color: bgColor,
           ),
           child: Stack(
             children: [
               // 1. PAPER TEXTURE GRAIN
-              const Positioned.fill(
+              Positioned.fill(
                 child: CustomPaint(
-                  painter: PaperTexturePainter(),
+                  painter: PaperTexturePainter(isDark: isDark),
                 ),
               ),
 
               // 2. PAPER CORNER CURLS
               Positioned.fill(
                 child: CustomPaint(
-                  painter: PaperDetailsPainter(),
+                  painter: PaperDetailsPainter(isDark: isDark),
                 ),
               ),
 
@@ -146,8 +151,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                       child: child,
                     );
                   },
-                  child: const CustomPaint(
-                    painter: PencilSketchesPainter(),
+                  child: CustomPaint(
+                    painter: PencilSketchesPainter(isDark: isDark),
                   ),
                 ),
               ),
@@ -167,12 +172,12 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                       ),
                     );
                   },
-                  child: const BottomLeftNotesSheet(),
+                  child: BottomLeftNotesSheet(isDark: isDark),
                 ),
               ),
 
               // 5. FLOATING STICKY NOTES
-              // Sticky Note 1: Orange-Yellow "Idea!" at top left
+              // Sticky Note 1: Branded theme sticky note at top left
               Positioned(
                 top: size.height * 0.08,
                 left: size.width * 0.08,
@@ -187,12 +192,14 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                       ),
                     );
                   },
-                  child: const StickyNoteWidget(
-                    color: Color(0xFFF5A25D),
+                  child: StickyNoteWidget(
+                    color: isDark ? primaryColor.withOpacity(0.2) : primaryColor.withOpacity(0.12),
                     text: 'Idea!',
                     width: 96,
                     height: 96,
                     showUnderline: true,
+                    isDark: isDark,
+                    customTextColor: isDark ? Colors.white70 : primaryColor,
                   ),
                 ),
               ),
@@ -212,13 +219,14 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                       ),
                     );
                   },
-                  child: const StickyNoteWidget(
-                    color: Color(0xFFEAD8C2),
+                  child: StickyNoteWidget(
+                    color: const Color(0xFFEAD8C2),
                     text: 'Idea!',
                     width: 104,
                     height: 90,
                     textRotation: -0.05,
                     showUnderline: true,
+                    isDark: isDark,
                   ),
                 ),
               ),
@@ -238,12 +246,13 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                       ),
                     );
                   },
-                  child: const StickyNoteWidget(
-                    color: Color(0xFFEAD8C2),
+                  child: StickyNoteWidget(
+                    color: const Color(0xFFEAD8C2),
                     text: '',
                     width: 90,
                     height: 98,
                     showLines: true,
+                    isDark: isDark,
                   ),
                 ),
               ),
@@ -269,12 +278,12 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                           },
                           child: CustomPaint(
                             size: const Size(180, 20),
-                            painter: UnderlineSwashPainter(),
+                            painter: UnderlineSwashPainter(color: primaryColor),
                           ),
                         ),
                       ),
 
-                      // Cursive Name: "Nuvio"
+                      // Cursive Name: "Nuvio" (Dynamic brand color highlight)
                       Positioned(
                         top: 15,
                         child: AnimatedBuilder(
@@ -290,7 +299,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                             style: GoogleFonts.greatVibes(
                               fontSize: 78,
                               fontWeight: FontWeight.w400,
-                              color: const Color(0xFF2C2A29), // Deep warm charcoal
+                              color: primaryColor, // Deep warm charcoal or off-white replaced with dynamic brand color
                             ).copyWith(
                               fontFamilyFallback: ['Segoe Script', 'Lucida Handwriting', 'cursive'],
                             ),
@@ -315,13 +324,13 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                               letterSpacing: 4.5,
-                              color: const Color(0xFF6B665E), // Warm muted grey
+                              color: subtitleColor, // Warm muted grey
                             ),
                           ),
                         ),
                       ),
 
-                      // Mechanical Pencil lying next to Nuvio
+                      // Mechanical Pencil lying next to Nuvio (with dynamic brand color)
                       Positioned(
                         left: 265,
                         top: 45,
@@ -336,7 +345,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                               ),
                             );
                           },
-                          child: const MechanicalPencilWidget(),
+                          child: MechanicalPencilWidget(primaryColor: primaryColor),
                         ),
                       ),
                     ],
@@ -355,12 +364,13 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 // CUSTOM PAINTER FOR PAPER TEXTURE (GRAIN & NOISE)
 // ----------------------------------------------------
 class PaperTexturePainter extends CustomPainter {
-  const PaperTexturePainter();
+  final bool isDark;
+  const PaperTexturePainter({required this.isDark});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFE5DEC9).withAlpha(20) // Very faint beige dots
+      ..color = isDark ? Colors.white.withAlpha(8) : const Color(0xFFE5DEC9).withAlpha(20) // Very faint dots
       ..style = PaintingStyle.fill;
     
     // Deterministic random generator for consistent texture
@@ -376,7 +386,7 @@ class PaperTexturePainter extends CustomPainter {
 
     // 2. Draw soft vertical background lines representing pulp grain
     final grainPaint = Paint()
-      ..color = const Color(0xFFFFFFFF).withAlpha(35)
+      ..color = isDark ? Colors.white.withAlpha(12) : const Color(0xFFFFFFFF).withAlpha(35)
       ..strokeWidth = 0.6;
     for (int i = 0; i < 40; i++) {
       final x = random.nextDouble() * size.width;
@@ -392,20 +402,24 @@ class PaperTexturePainter extends CustomPainter {
 // CUSTOM PAINTER FOR PAGE CURLS
 // ----------------------------------------------------
 class PaperDetailsPainter extends CustomPainter {
+  final bool isDark;
+  PaperDetailsPainter({required this.isDark});
+
   @override
   void paint(Canvas canvas, Size size) {
+    final bgPaint = Paint()..color = isDark ? const Color(0xFF0D0E10) : const Color(0xFFE5DEC9);
+
     // 1. TOP RIGHT CURL
     final pathTopCurlBg = Path()
       ..moveTo(size.width - 120, 0)
       ..lineTo(size.width, 120)
       ..lineTo(size.width, 0)
       ..close();
-    final bgPaint = Paint()..color = const Color(0xFFE5DEC9);
     canvas.drawPath(pathTopCurlBg, bgPaint);
 
     // Top Right Curl Shadow
     final shadowPaint1 = Paint()
-      ..color = Colors.black.withAlpha(20)
+      ..color = Colors.black.withAlpha(isDark ? 60 : 20)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     final shadowPath1 = Path()
       ..moveTo(size.width - 126, 0)
@@ -422,15 +436,17 @@ class PaperDetailsPainter extends CustomPainter {
       ..close();
 
     final paintFlap1 = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xFFFFFFFF), Color(0xFFE5E7EB)],
+      ..shader = LinearGradient(
+        colors: isDark
+            ? [const Color(0xFF1E2124), const Color(0xFF151719)]
+            : [const Color(0xFFFFFFFF), const Color(0xFFE5E7EB)],
         begin: Alignment.bottomLeft,
         end: Alignment.topRight,
       ).createShader(Rect.fromLTWH(size.width - 120, 0, 120, 120));
     canvas.drawPath(pathTopFlap, paintFlap1);
 
     final foldEdgePaint = Paint()
-      ..color = const Color(0xFFEBE5D8)
+      ..color = isDark ? const Color(0xFF2C2F33) : const Color(0xFFEBE5D8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     canvas.drawPath(pathTopFlap, foldEdgePaint);
@@ -459,8 +475,10 @@ class PaperDetailsPainter extends CustomPainter {
       ..close();
 
     final paintFlap2 = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0xFFFFFFFF), Color(0xFFE5E7EB)],
+      ..shader = LinearGradient(
+        colors: isDark
+            ? [const Color(0xFF1E2124), const Color(0xFF151719)]
+            : [const Color(0xFFFFFFFF), const Color(0xFFE5E7EB)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ).createShader(Rect.fromLTWH(size.width - 130, size.height - 130, 130, 130));
@@ -476,12 +494,13 @@ class PaperDetailsPainter extends CustomPainter {
 // CUSTOM PAINTER FOR BACKGROUND PENCIL SKETCHES
 // ----------------------------------------------------
 class PencilSketchesPainter extends CustomPainter {
-  const PencilSketchesPainter();
+  final bool isDark;
+  const PencilSketchesPainter({required this.isDark});
 
   @override
   void paint(Canvas canvas, Size size) {
     final pencilPaint = Paint()
-      ..color = const Color(0xFF8F887F).withAlpha(97) // Soft graphite
+      ..color = isDark ? Colors.white.withAlpha(45) : const Color(0xFF8F887F).withAlpha(97) // Soft graphite
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0
       ..strokeCap = StrokeCap.round
@@ -507,7 +526,7 @@ class PencilSketchesPainter extends CustomPainter {
         text: 'Inamy.',
         style: GoogleFonts.cedarvilleCursive(
           fontSize: 22,
-          color: const Color(0xFF8F887F).withAlpha(140),
+          color: isDark ? Colors.white.withAlpha(65) : const Color(0xFF8F887F).withAlpha(140),
         ).copyWith(
           fontFamilyFallback: ['Segoe Script', 'cursive'],
         ),
@@ -535,7 +554,7 @@ class PencilSketchesPainter extends CustomPainter {
         text: 'Thy.',
         style: GoogleFonts.cedarvilleCursive(
           fontSize: 24,
-          color: const Color(0xFF8F887F).withAlpha(130),
+          color: isDark ? Colors.white.withAlpha(60) : const Color(0xFF8F887F).withAlpha(130),
         ).copyWith(
           fontFamilyFallback: ['Segoe Script', 'cursive'],
         ),
@@ -565,7 +584,7 @@ class PencilSketchesPainter extends CustomPainter {
 
     // 6. Flower doodle above bottom-right sticky note
     final flowerPaint = Paint()
-      ..color = const Color(0xFF8F887F).withAlpha(80)
+      ..color = isDark ? Colors.white.withAlpha(40) : const Color(0xFF8F887F).withAlpha(80)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.9;
     
@@ -587,7 +606,7 @@ class PencilSketchesPainter extends CustomPainter {
 
     // 7. Four-pointed sparkle star in the bottom-right corner next to curl
     final starPaint = Paint()
-      ..color = const Color(0xFFFAF9F6)
+      ..color = isDark ? const Color(0xFF1E2124) : const Color(0xFFFAF9F6)
       ..style = PaintingStyle.fill;
     
     final starCenter = Offset(size.width - 45, size.height - 45);
@@ -601,7 +620,7 @@ class PencilSketchesPainter extends CustomPainter {
     
     canvas.drawPath(starPath, starPaint);
     canvas.drawPath(starPath, Paint()
-      ..color = const Color(0xFFDFD7C7)
+      ..color = isDark ? Colors.white10 : const Color(0xFFDFD7C7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5);
   }
@@ -621,6 +640,8 @@ class StickyNoteWidget extends StatelessWidget {
   final double textRotation;
   final bool showLines;
   final bool showUnderline;
+  final bool isDark;
+  final Color? customTextColor;
 
   const StickyNoteWidget({
     super.key,
@@ -631,6 +652,8 @@ class StickyNoteWidget extends StatelessWidget {
     this.textRotation = 0.06,
     this.showLines = false,
     this.showUnderline = false,
+    required this.isDark,
+    this.customTextColor,
   });
 
   @override
@@ -643,6 +666,7 @@ class StickyNoteWidget extends StatelessWidget {
           baseColor: color,
           showLines: showLines,
           showUnderline: showUnderline,
+          isDark: isDark,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
@@ -654,7 +678,7 @@ class StickyNoteWidget extends StatelessWidget {
                     style: GoogleFonts.caveat(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF554B3E),
+                      color: customTextColor ?? const Color(0xFF554B3E),
                     ).copyWith(
                       fontFamilyFallback: ['Comic Sans MS', 'Ink Free', 'cursive'],
                     ),
@@ -671,11 +695,13 @@ class StickyNotePainter extends CustomPainter {
   final Color baseColor;
   final bool showLines;
   final bool showUnderline;
+  final bool isDark;
 
   StickyNotePainter({
     required this.baseColor,
     required this.showLines,
     required this.showUnderline,
+    required this.isDark,
   });
 
   @override
@@ -687,7 +713,7 @@ class StickyNotePainter extends CustomPainter {
 
     // Soft drop shadow
     final shadowPaint = Paint()
-      ..color = Colors.black.withAlpha(10)
+      ..color = Colors.black.withAlpha(isDark ? 45 : 10)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
     
     final bodyPath = Path()
@@ -756,7 +782,8 @@ class StickyNotePainter extends CustomPainter {
 // BOTTOM LEFT NOTES SHEET & WOOD PENCIL
 // ----------------------------------------------------
 class BottomLeftNotesSheet extends StatelessWidget {
-  const BottomLeftNotesSheet({super.key});
+  final bool isDark;
+  const BottomLeftNotesSheet({super.key, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
@@ -764,11 +791,11 @@ class BottomLeftNotesSheet extends StatelessWidget {
       width: 180,
       height: 230,
       decoration: BoxDecoration(
-        color: const Color(0xFFFAF9F6),
-        border: Border.all(color: const Color(0xFFE5E2D8), width: 1.0),
+        color: isDark ? const Color(0xFF1E2124) : const Color(0xFFFAF9F6),
+        border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE5E2D8), width: 1.0),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(5),
+            color: Colors.black.withAlpha(isDark ? 30 : 5),
             blurRadius: 10,
             offset: const Offset(4, 4),
           ),
@@ -780,7 +807,7 @@ class BottomLeftNotesSheet extends StatelessWidget {
           // Notepad Ruling Lines (Pink margin, Blue horizontal)
           Positioned.fill(
             child: CustomPaint(
-              painter: NotepadRulingPainter(),
+              painter: NotepadRulingPainter(isDark: isDark),
             ),
           ),
 
@@ -797,7 +824,7 @@ class BottomLeftNotesSheet extends StatelessWidget {
                     style: GoogleFonts.caveat(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF4A453F),
+                      color: isDark ? const Color(0xFFE5E2D8) : const Color(0xFF4A453F),
                     ).copyWith(
                       fontFamilyFallback: ['Comic Sans MS', 'Ink Free', 'cursive'],
                     ),
@@ -808,7 +835,7 @@ class BottomLeftNotesSheet extends StatelessWidget {
                     style: GoogleFonts.caveat(
                       fontSize: 16,
                       height: 1.6,
-                      color: const Color(0xFF6B655E),
+                      color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B655E),
                     ).copyWith(
                       fontFamilyFallback: ['Comic Sans MS', 'Ink Free', 'cursive'],
                     ),
@@ -826,7 +853,7 @@ class BottomLeftNotesSheet extends StatelessWidget {
               'nuvio.',
               style: GoogleFonts.cedarvilleCursive(
                 fontSize: 16,
-                color: const Color(0xFF4A453F),
+                color: isDark ? const Color(0xFFE5E2D8) : const Color(0xFF4A453F),
               ).copyWith(
                 fontFamilyFallback: ['Segoe Script', 'cursive'],
               ),
@@ -849,15 +876,18 @@ class BottomLeftNotesSheet extends StatelessWidget {
 }
 
 class NotepadRulingPainter extends CustomPainter {
+  final bool isDark;
+  NotepadRulingPainter({required this.isDark});
+
   @override
   void paint(Canvas canvas, Size size) {
     // Spiral notepad holes at the top edge
     final holesPaint = Paint()
-      ..color = const Color(0xFFE5DEC9) // matches underlying desk sheet color
+      ..color = isDark ? const Color(0xFF0D0E10) : const Color(0xFFE5DEC9) // matches underlying desk sheet color
       ..style = PaintingStyle.fill;
     
     final holeBorder = Paint()
-      ..color = const Color(0xFFE5E2D8)
+      ..color = isDark ? Colors.white10 : const Color(0xFFE5E2D8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5;
 
@@ -869,7 +899,7 @@ class NotepadRulingPainter extends CustomPainter {
 
     // Soft light blue ruling lines
     final linePaint = Paint()
-      ..color = const Color(0xFFD4E2F0)
+      ..color = isDark ? Colors.white10 : const Color(0xFFD4E2F0)
       ..strokeWidth = 0.8;
     
     double startY = 55.0;
@@ -881,7 +911,7 @@ class NotepadRulingPainter extends CustomPainter {
 
     // Left margin line
     final marginPaint = Paint()
-      ..color = const Color(0xFFF0A0A0) // Soft pink margin
+      ..color = isDark ? const Color(0xFFEF4444).withOpacity(0.3) : const Color(0xFFF0A0A0) // Soft pink margin
       ..strokeWidth = 1.0;
     canvas.drawLine(const Offset(28, 0), Offset(28, size.height), marginPaint);
   }
@@ -949,10 +979,13 @@ class WoodPencilPainter extends CustomPainter {
 // HAND-DRAWN SWASH UNDERLINE PAINTER
 // ----------------------------------------------------
 class UnderlineSwashPainter extends CustomPainter {
+  final Color color;
+  UnderlineSwashPainter({required this.color});
+
   @override
   void paint(Canvas canvas, Size size) {
     final swashPaint = Paint()
-      ..color = const Color(0xFFC7B198).withAlpha(217) // Sand swash
+      ..color = color.withOpacity(0.68) // Sand swash replaced with brand accent color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round
@@ -979,7 +1012,8 @@ class UnderlineSwashPainter extends CustomPainter {
 // SLANTED MECHANICAL PENCIL WIDGET NEXT TO LOGO
 // ----------------------------------------------------
 class MechanicalPencilWidget extends StatelessWidget {
-  const MechanicalPencilWidget({super.key});
+  final Color primaryColor;
+  const MechanicalPencilWidget({super.key, required this.primaryColor});
 
   @override
   Widget build(BuildContext context) {
@@ -987,13 +1021,15 @@ class MechanicalPencilWidget extends StatelessWidget {
       angle: -2.4, // Rotated to point down-left next to 'o'
       child: CustomPaint(
         size: const Size(4.5, 90),
-        painter: MechanicalPencilPainter(),
+        painter: MechanicalPencilPainter(primaryColor: primaryColor),
       ),
     );
   }
 }
 
 class MechanicalPencilPainter extends CustomPainter {
+  final Color primaryColor;
+  MechanicalPencilPainter({required this.primaryColor});
   @override
   void paint(Canvas canvas, Size size) {
     final clipPaint = Paint()..color = const Color(0xFF6B7280); // Dark grey clip
