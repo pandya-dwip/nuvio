@@ -2339,7 +2339,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       const Divider(height: 1, indent: 16, endIndent: 16),
                       _buildAboutRow('Build Number', '1', textColor, subtleColor),
                       const Divider(height: 1, indent: 16, endIndent: 16),
-                      _buildAboutRow('Developer', 'pandya-dwip/', textColor, subtleColor),
+                      _buildAboutRow('Developer', 'Dwip Pandya', textColor, subtleColor),
                     ],
                   ),
                 ),
